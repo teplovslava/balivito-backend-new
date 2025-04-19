@@ -17,6 +17,19 @@ const UserSchema = new Schema({
       viewedAt: { type: Date, default: Date.now },
     },
   ],
+  rating: { type: Number, default: 0 },
+  feedbacks: [
+    {
+      _id: { type: Schema.Types.ObjectId, auto: true },
+      author: {
+        _id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        name: { type: String, required: true },
+      },
+      text: { type: String, required: true },
+      rating: { type: String, required: true }, // или Number
+      createdAt: { type: Date, default: Date.now },
+    }
+  ]
 });
 
 export default model('User', UserSchema);
