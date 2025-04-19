@@ -230,24 +230,36 @@ export const updateAd = async (req, res) => {
 export const getRecommendedAds = async (req, res) => {
   try {
     const userId = req.userId;
-
-    console.log(userId)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 6;
+    const skip = (page - 1) * limit;
 
     if (!userId) {
       return res.status(400).json({ message: 'Неизвестный пользователь' });
     }
 
     const user = await User.findById(userId);
+
+    // Если нет истории просмотров — отдать просто свежие объявления
     if (!user || !user.viewedHistory?.length) {
-      return res.json([]);
+      const latestAds = await Ad.find({ author: { $ne: userId } })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('location', 'name')
+        .populate('category', 'name')
+        .select('title price photos location category');
+
+      return res.json(latestAds);
     }
 
+    // ───────────────────── рекомендационная логика ───────────────────── //
     const scoreMap = {};
     const now = Date.now();
 
     for (const view of user.viewedHistory) {
-      const timeDiff = (now - new Date(view.viewedAt).getTime()) / (1000 * 60 * 60);
-      const score = Math.max(1, 24 - timeDiff);
+      const timeDiff = (now - new Date(view.viewedAt).getTime()) / (1000 * 60 * 60); // часы
+      const score = Math.max(1, 24 - timeDiff); // чем свежее — тем выше вес
 
       if (view.category) {
         scoreMap[`cat:${view.category}`] = (scoreMap[`cat:${view.category}`] || 0) + score;
@@ -269,19 +281,19 @@ export const getRecommendedAds = async (req, res) => {
       .slice(0, 3)
       .map(([k]) => k.split(':')[1]);
 
-      const recommendedAds = await Ad.find({
-        $or: [
-          { category: { $in: topCategories } },
-          { location: { $in: topLocations } },
-        ],
-        author: { $ne: userId },
-      })
-        .sort({ createdAt: -1 })
-        .limit(6)
-        .populate('location', 'name')
-        .populate('category', 'name')
-        .select('title price photos location category');
-      
+    const recommendedAds = await Ad.find({
+      $or: [
+        { category: { $in: topCategories } },
+        { location: { $in: topLocations } },
+      ],
+      author: { $ne: userId },
+    })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('location', 'name')
+      .populate('category', 'name')
+      .select('title price photos location category');
 
     res.json(recommendedAds);
   } catch (err) {
@@ -289,3 +301,4 @@ export const getRecommendedAds = async (req, res) => {
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
+
