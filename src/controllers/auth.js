@@ -27,7 +27,8 @@ export const register = async (req, res) => {
     await newUser.save();
 
     try {
-      await sendVerificationEmail(email, verificationToken);
+      const result = await sendVerificationEmail(email, verificationToken);
+      console.log(result)
       res.status(201).json({ message: 'Пользователь зарегистрирован. Проверьте почту для подтверждения.' });
     } catch (emailErr) {
       await User.deleteOne({ email });

@@ -12,7 +12,6 @@ export const createAd = async (req, res) => {
 
     const dublicate = existingAds.find((ad) => {
       const similarity = jaccardSimilarity(ad.title, title);
-      console.log(similarity, SIMILARITY_THRESHOLD)
       return similarity >= SIMILARITY_THRESHOLD;
     });
 
