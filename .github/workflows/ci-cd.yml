@@ -9,7 +9,7 @@ permissions:
   packages: write
 
 env:
-  REGISTRY_IMAGE: ghcr.io/${{ github.repository_lower }}:latest
+  REGISTRY_IMAGE: ghcr.io/teplovslava/balivito-backend-new:latest
 
 
 jobs:
