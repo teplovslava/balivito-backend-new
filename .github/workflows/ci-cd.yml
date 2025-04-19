@@ -32,23 +32,24 @@ jobs:
             PORT=${{ vars.PORT }}
 
   # ─────────────────────────────── CD ─────────────────────────────── #
-    deploy:
+  deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         env:
-          SSH_HOST:      ${{ secrets.SSH_HOST }}
-          SSH_USER:      ${{ secrets.SSH_USER }}
-          SSH_KEY:       ${{ secrets.SSH_KEY }}
-          GHCR_PAT:      ${{ secrets.GHCR_PAT }}
-          PORT:          ${{ vars.PORT }}
-          MONGODB_URI:   ${{ vars.MONGODB_URI }}
-          JWT_SECRET:    ${{ secrets.JWT_SECRET }}
-          JWT_EXPIRES_IN:${{ vars.JWT_EXPIRES_IN }}
-          MAIL_ADDRESS:  ${{ vars.MAIL_ADDRESS }}
-          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          SSH_HOST:       ${{ secrets.SSH_HOST }}
+          SSH_USER:       ${{ secrets.SSH_USER }}
+          SSH_KEY:        ${{ secrets.SSH_KEY }}
+          GHCR_PAT:       ${{ secrets.GHCR_PAT }}
+          PORT:           ${{ vars.PORT }}
+          MONGODB_URI:    ${{ vars.MONGODB_URI }}
+          JWT_SECRET:     ${{ secrets.JWT_SECRET }}
+          JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
+          SITE_URL:       ${{ vars.SITE_URL }}
+          MAIL_ADDRESS:   ${{ vars.MAIL_ADDRESS }}
+          MAIL_PASSWORD:  ${{ secrets.MAIL_PASSWORD }}
         with:
           host:     ${{ env.SSH_HOST }}
           username: ${{ env.SSH_USER }}
@@ -57,10 +58,9 @@ jobs:
             set -e
             cd /opt/stack
 
-            # Собираем SITE_URL
             SITE_URL="http://${SSH_HOST}:${PORT}"
 
-            # Обновляем .env
+            # 1) обновляем/создаём .env
             cat > .env <<EOF
             PORT=$PORT
             MONGODB_URI=$MONGODB_URI
@@ -71,9 +71,7 @@ jobs:
             MAIL_PASSWORD=$MAIL_PASSWORD
             EOF
 
-            # Логинимся в GHCR
+            # 2) логинимся в GHCR под github.actor и тянем образ
             echo "$GHCR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Стягиваем и перезапускаем образ
             docker pull ${{ env.REGISTRY_IMAGE }}
             docker compose up -d --pull=always --remove-orphans
