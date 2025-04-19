@@ -57,11 +57,20 @@ jobs:
           key:      ${{ env.SSH_KEY }}
           script: |
             set -e
+
+            echo "📁 Переход в директорию проекта"
             cd /opt/stack/balivito-backend-new
 
-            SITE_URL="http://${SSH_HOST}:${PORT}"
+            echo "🔍 Отладка переменных окружения:"
+            echo "PORT=$PORT"
+            echo "MONGODB_URI=$MONGODB_URI"
+            echo "JWT_SECRET=$JWT_SECRET"
+            echo "JWT_EXPIRES_IN=$JWT_EXPIRES_IN"
+            echo "SITE_URL=$SITE_URL"
+            echo "MAIL_ADDRESS=$MAIL_ADDRESS"
+            echo "MAIL_PASSWORD=$MAIL_PASSWORD"
 
-            # создаём .env прямо в нужной директории
+            echo "✍️ Создание .env-файла:"
             cat > .env <<EOF
             PORT=$PORT
             MONGODB_URI=$MONGODB_URI
@@ -72,5 +81,13 @@ jobs:
             MAIL_PASSWORD=$MAIL_PASSWORD
             EOF
 
+            echo "🐳 Логинимся в GitHub Container Registry (если нужно)"
+            echo "$GHCR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin || true
+
+            echo "⬇️ Тянем новый образ"
             docker pull ${{ env.REGISTRY_IMAGE }}
+
+            echo "🚀 Запускаем контейнеры"
             docker compose up -d --pull=always --remove-orphans
+
+            echo "✅ Деплой завершён!"
