@@ -11,7 +11,6 @@ permissions:
 env:
   REGISTRY_IMAGE: ghcr.io/teplovslava/balivito-backend-new:latest
 
-
 jobs:
   # ─────────────────────────────── CI ─────────────────────────────── #
   build:
@@ -36,25 +35,26 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    env:
+      PORT:           ${{ vars.PORT }}
+      MONGODB_URI:    ${{ vars.MONGODB_URI }}
+      JWT_SECRET:     ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
+      SITE_URL:       ${{ vars.SITE_URL }}
+      MAIL_ADDRESS:   ${{ vars.MAIL_ADDRESS }}
+      MAIL_PASSWORD:  ${{ secrets.MAIL_PASSWORD }}
+      GHCR_PAT:       ${{ secrets.GHCR_PAT }}
+      GITHUB_ACTOR:   ${{ github.actor }}
+
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
-        env:
-          SSH_HOST:       ${{ secrets.SSH_HOST }}
-          SSH_USER:       ${{ secrets.SSH_USER }}
-          SSH_KEY:        ${{ secrets.SSH_KEY }}
-          GHCR_PAT:       ${{ secrets.GHCR_PAT }}
-          PORT:           ${{ vars.PORT }}
-          MONGODB_URI:    ${{ vars.MONGODB_URI }}
-          JWT_SECRET:     ${{ secrets.JWT_SECRET }}
-          JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
-          SITE_URL:       ${{ vars.SITE_URL }}
-          MAIL_ADDRESS:   ${{ vars.MAIL_ADDRESS }}
-          MAIL_PASSWORD:  ${{ secrets.MAIL_PASSWORD }}
         with:
-          host:     ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          key:      ${{ env.SSH_KEY }}
+          host:     ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key:      ${{ secrets.SSH_KEY }}
+          envs: PORT,MONGODB_URI,JWT_SECRET,JWT_EXPIRES_IN,SITE_URL,MAIL_ADDRESS,MAIL_PASSWORD,GHCR_PAT,GITHUB_ACTOR
+
           script: |
             set -e
 
@@ -82,7 +82,7 @@ jobs:
             EOF
 
             echo "🐳 Логинимся в GitHub Container Registry (если нужно)"
-            echo "$GHCR_PAT" | docker login ghcr.io -u ${{ github.actor }} --password-stdin || true
+            echo "$GHCR_PAT" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin || true
 
             echo "⬇️ Тянем новый образ"
             docker pull ${{ env.REGISTRY_IMAGE }}
