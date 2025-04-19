@@ -41,7 +41,7 @@ export const getFavorites = async (req, res) => {
 
     if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
 
-    res.json({ items: user.favorites });
+    res.json(user.favorites);
   } catch (err) {
     console.error('Ошибка получения избранных:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
