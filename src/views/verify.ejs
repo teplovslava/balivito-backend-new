@@ -1,0 +1,67 @@
+</html>
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Почта подтверждена</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #333;
+        }
+
+        .card {
+            background-color: #fff;
+            padding: 2rem 3rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .card h1 {
+            margin-bottom: 0.5rem;
+            color: #2ecc71;
+        }
+
+        .card p {
+            margin-bottom: 1.5rem;
+        }
+
+        .card a {
+            text-decoration: none;
+            color: #fff;
+            background-color: #2ecc71;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: background 0.2s ease-in-out;
+        }
+
+        .card a:hover {
+            background-color: #27ae60;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1 style="color:<%= color %>">
+            <%= title %>
+        </h1>
+        <p>
+            <%= message %>
+        </p>
+    </div>
+</body>
+
+</html>
