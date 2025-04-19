@@ -21,7 +21,7 @@ export const toggleFavorite = async (req, res) => {
 
     await user.save();
 
-    res.json({ message: index === -1 ? 'Добавлено в избранное' : 'Удалено из избранного' });
+    res.json({ message: index === -1 ? 'Добавлено в избранное' : 'Удалено из избранного', isFavorite: index === -1 });
   } catch (err) {
     console.error('Ошибка обновления избранного:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
