@@ -240,7 +240,6 @@ export const getRecommendedAds = async (req, res) => {
 
     const user = await User.findById(userId);
 
-    // Если нет истории просмотров — отдать просто свежие объявления
     if (!user || !user.viewedHistory?.length) {
       const latestAds = await Ad.find({ author: { $ne: userId } })
         .sort({ createdAt: -1 })
@@ -250,16 +249,22 @@ export const getRecommendedAds = async (req, res) => {
         .populate('category', 'name')
         .select('title price photos location category');
 
-      return res.json(latestAds);
+      const favoriteSet = new Set(user.favorites.map(fav => fav.toString()));
+      const adsWithFavorites = latestAds.map(ad => ({
+        ...ad.toObject(),
+        isFavorite: favoriteSet.has(ad._id.toString()),
+      }));
+
+      return res.json(adsWithFavorites);
     }
 
-    // ───────────────────── рекомендационная логика ───────────────────── //
+    // ─────── рекомендационная логика ─────── //
     const scoreMap = {};
     const now = Date.now();
 
     for (const view of user.viewedHistory) {
       const timeDiff = (now - new Date(view.viewedAt).getTime()) / (1000 * 60 * 60); // часы
-      const score = Math.max(1, 24 - timeDiff); // чем свежее — тем выше вес
+      const score = Math.max(1, 24 - timeDiff);
 
       if (view.category) {
         scoreMap[`cat:${view.category}`] = (scoreMap[`cat:${view.category}`] || 0) + score;
@@ -295,10 +300,17 @@ export const getRecommendedAds = async (req, res) => {
       .populate('category', 'name')
       .select('title price photos location category');
 
-    res.json(recommendedAds);
+    const favoriteSet = new Set(user.favorites.map(fav => fav.toString()));
+    const adsWithFavorites = recommendedAds.map(ad => ({
+      ...ad.toObject(),
+      isFavorite: favoriteSet.has(ad._id.toString()),
+    }));
+
+    res.json(adsWithFavorites);
   } catch (err) {
     console.error('Ошибка получения рекомендаций:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
+
 
