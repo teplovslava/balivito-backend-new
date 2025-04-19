@@ -81,7 +81,7 @@ export const getAdById = async (req, res) => {
 
     if (viewerId) {
       const user = await User.findById(viewerId).select('favorites');
-      isFavorite = user.favorites.findIndex(fav.toString() === id.toString()) > -1;
+      isFavorite = user.favorites.findIndex((fav) =>fav.toString() === id.toString()) > -1;
     }
 
     res.status(200).json({
