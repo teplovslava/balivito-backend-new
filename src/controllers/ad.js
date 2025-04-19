@@ -39,7 +39,6 @@ export const createAd = async (req, res) => {
   }
 };
 
-
 export const getAdById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -78,11 +77,17 @@ export const getAdById = async (req, res) => {
       },
     });
 
-    console.log(ad)
+    let isFavorite = false;
+    
+    if (viewerId) {
+      const user = await User.findById(viewerId).select('favorites');
+      isFavorite = user.favorites.findIndex(fav => fav === ad._id) > -1;
+    }
 
     res.status(200).json({
       ...ad.toObject(),
       views: ad.viewerIds.length,
+      isFavorite,
     });
   } catch (err) {
     console.error('Ошибка получения объявления:', err);
