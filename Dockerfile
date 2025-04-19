@@ -1,3 +1,4 @@
+ARG PORT
 FROM node:20-alpine
 
 WORKDIR /app
@@ -7,6 +8,8 @@ RUN npm install --production
 
 COPY . .
 
-EXPOSE 7777
+# Передаём порт в runtime
+ENV PORT=${PORT}
+EXPOSE ${PORT}
 
 CMD ["node", "src/index.js"]

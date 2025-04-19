@@ -2,16 +2,16 @@ version: "3.9"
 
 services:
   api:
-    image: ghcr.io/teplovslava/<REPO>:latest   # собранный CI‑образ
-    env_file: .env             # файл кладёт deploy‑job; на сервере рядом с compose
+    image: ghcr.io/teplovslava/balivito-backend-new:latest   # собранный CI‑образ
+    env_file: .env                                           # файл кладёт deploy‑job; на сервере рядом с compose
     ports:
-      - "7777:7777"            # наружу доступен только API
+      - "${PORT}:${PORT}"                                  # порт берётся из .env
     depends_on:
       mongo:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7777/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT}/health"]
       interval: 30s
       timeout: 5s
       retries: 5
