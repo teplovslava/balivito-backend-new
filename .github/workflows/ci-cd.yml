@@ -36,14 +36,16 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     env:
+      SSH_HOST:       ${{ secrets.SSH_HOST }}
+      SSH_USER:       ${{ secrets.SSH_USER }}
+      SSH_KEY:        ${{ secrets.SSH_KEY }}
+      GHCR_PAT:       ${{ secrets.GHCR_PAT }}
       PORT:           ${{ vars.PORT }}
       MONGODB_URI:    ${{ vars.MONGODB_URI }}
       JWT_SECRET:     ${{ secrets.JWT_SECRET }}
       JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
-      SITE_URL:       ${{ vars.SITE_URL }}
       MAIL_ADDRESS:   ${{ vars.MAIL_ADDRESS }}
       MAIL_PASSWORD:  ${{ secrets.MAIL_PASSWORD }}
-      GHCR_PAT:       ${{ secrets.GHCR_PAT }}
       GITHUB_ACTOR:   ${{ github.actor }}
 
     steps:
@@ -53,7 +55,7 @@ jobs:
           host:     ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key:      ${{ secrets.SSH_KEY }}
-          envs: PORT,MONGODB_URI,JWT_SECRET,JWT_EXPIRES_IN,SITE_URL,MAIL_ADDRESS,MAIL_PASSWORD,GHCR_PAT,GITHUB_ACTOR
+          envs: PORT,SSH_HOST,MONGODB_URI,JWT_SECRET,JWT_EXPIRES_IN,MAIL_ADDRESS,MAIL_PASSWORD,GHCR_PAT,GITHUB_ACTOR
 
           script: |
             set -e
@@ -62,13 +64,16 @@ jobs:
             cd /opt/stack/balivito-backend-new
 
             echo "🔍 Отладка переменных окружения:"
+            echo "SSH_HOST=$SSH_HOST"
             echo "PORT=$PORT"
             echo "MONGODB_URI=$MONGODB_URI"
             echo "JWT_SECRET=$JWT_SECRET"
             echo "JWT_EXPIRES_IN=$JWT_EXPIRES_IN"
-            echo "SITE_URL=$SITE_URL"
             echo "MAIL_ADDRESS=$MAIL_ADDRESS"
             echo "MAIL_PASSWORD=$MAIL_PASSWORD"
+
+            SITE_URL="http://${SSH_HOST}:${PORT}"
+            echo "👉 Сформирован SITE_URL=$SITE_URL"
 
             echo "✍️ Создание .env-файла:"
             cat > .env <<EOF
@@ -81,7 +86,7 @@ jobs:
             MAIL_PASSWORD=$MAIL_PASSWORD
             EOF
 
-            echo "🐳 Логинимся в GitHub Container Registry (если нужно)"
+            echo "🐳 Логинимся в GitHub Container Registry"
             echo "$GHCR_PAT" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin || true
 
             echo "⬇️ Тянем новый образ"
