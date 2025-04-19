@@ -72,4 +72,4 @@ jobs:
             EOF
 
             docker pull ${{ env.REGISTRY_IMAGE }}
-            docker compose up -d --pull=always --remove-orphans
+            docker compose -f balivito-backend-new/docker-compose.yml up -d --pull=always --remove-orphans
