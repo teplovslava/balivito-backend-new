@@ -246,6 +246,7 @@ export const getRecommendedAds = async (req, res) => {
     const user = await User.findById(userId);
 
     if (!user || !user.viewedHistory?.length) {
+      console.log('не сработала логика')
       const latestAds = await Ad.find({ author: { $ne: userId } })
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -310,6 +311,8 @@ export const getRecommendedAds = async (req, res) => {
       ...ad.toObject(),
       isFavorite: favoriteSet.has(ad._id.toString()),
     }));
+
+    console.log(adsWithFavorites)
 
     res.json(adsWithFavorites);
   } catch (err) {
