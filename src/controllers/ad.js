@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 import { jaccardSimilarity, SIMILARITY_THRESHOLD } from '../utils/checkTitle.js';
 import { getPaginatedAds } from '../utils/getPaginatedAds.js';
+import { escapeRegExp } from '../utils/escapeRegExp.js';
 
 export const createAd = async (req, res) => {
   try {
@@ -115,7 +116,8 @@ export const getAds = async (req, res) => {
     if (category) filter.category = category;
     if (location) filter.location = location;
     if (search) {
-      filter.title = { $regex: new RegExp(search, 'i') };
+      const escapedSearch = escapeRegExp(search);
+      filter.title = { $regex: new RegExp(escapedSearch, 'i') };
     }
 
     const { ads, pagination } = await getPaginatedAds({
@@ -324,11 +326,13 @@ export const getSearchSuggestions = async (req, res) => {
       return res.json([]);
     }
 
+    const escapedQuery = escapeRegExp(query);
+
     const suggestions = await Ad.aggregate([
       {
         $match: {
           title: {
-            $regex: new RegExp(query, 'i'),
+            $regex: new RegExp(escapedQuery, 'i'),
           },
         },
       },
