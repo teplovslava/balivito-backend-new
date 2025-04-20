@@ -1,4 +1,3 @@
-// getPaginatedAds.js
 import Ad from '../models/Ad.js';
 
 export const getPaginatedAds = async ({ filter = {}, page = 1, limit = 30 }) => {

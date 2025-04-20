@@ -318,4 +318,41 @@ export const getRecommendedAds = async (req, res) => {
   }
 };
 
+export const getSearchSuggestions = async (req, res) => {
+  try {
+    const { query } = req.query;
 
+    if (!query || query.length < 1) {
+      return res.json([]);
+    }
+
+    const suggestions = await Ad.aggregate([
+      {
+        $match: {
+          title: {
+            $regex: new RegExp(query, 'i'),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: '$title',
+        },
+      },
+      {
+        $limit: 10,
+      },
+      {
+        $project: {
+          _id: 0,
+          title: '$_id',
+        },
+      },
+    ]);
+
+    res.json(suggestions.map((s) => s.title));
+  } catch (err) {
+    console.error('Ошибка подсказок:', err);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
