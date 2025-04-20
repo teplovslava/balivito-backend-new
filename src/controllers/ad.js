@@ -4,6 +4,7 @@ import User from '../models/User.js'
 import fs from 'fs';
 import path from 'path';
 import { jaccardSimilarity, SIMILARITY_THRESHOLD } from '../utils/checkTitle.js';
+import { getPaginatedAds } from '../utils/getPaginatedAds.js';
 
 export const createAd = async (req, res) => {
   try {
@@ -232,44 +233,43 @@ export const updateAd = async (req, res) => {
   }
 };
 
+
 export const getRecommendedAds = async (req, res) => {
   try {
     const userId = req.userId;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 30;
-    const skip = (page - 1) * limit;
+
+    console.log(page, limit)
 
     if (!userId) {
       return res.status(400).json({ message: 'Неизвестный пользователь' });
     }
 
     const user = await User.findById(userId);
+    const favorites = user?.favorites || [];
 
+    // если нет истории просмотров — берём последние объявления
     if (!user || !user.viewedHistory?.length) {
-      console.log('не сработала логика')
-      const latestAds = await Ad.find({ author: { $ne: userId } })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('location', 'name')
-        .populate('category', 'name')
-        .select('title price photos location category');
+      const filter = { author: { $ne: userId } };
 
-      const favoriteSet = new Set(user.favorites.map(fav => fav.toString()));
-      const adsWithFavorites = latestAds.map(ad => ({
+      const { ads, pagination } = await getPaginatedAds({ filter, page, limit });
+
+      const favoriteSet = new Set(favorites.map(fav => fav.toString()));
+      const items = ads.map(ad => ({
         ...ad.toObject(),
         isFavorite: favoriteSet.has(ad._id.toString()),
       }));
 
-      return res.json(adsWithFavorites);
+      return res.json({ items, pagination });
     }
 
-    // ─────── рекомендационная логика ─────── //
+    // рекомендационная логика
     const scoreMap = {};
     const now = Date.now();
 
     for (const view of user.viewedHistory) {
-      const timeDiff = (now - new Date(view.viewedAt).getTime()) / (1000 * 60 * 60); // часы
+      const timeDiff = (now - new Date(view.viewedAt).getTime()) / (1000 * 60 * 60); // в часах
       const score = Math.max(1, 24 - timeDiff);
 
       if (view.category) {
@@ -292,29 +292,26 @@ export const getRecommendedAds = async (req, res) => {
       .slice(0, 3)
       .map(([k]) => k.split(':')[1]);
 
-    const recommendedAds = await Ad.find({
+    const filter = {
       $or: [
         { category: { $in: topCategories } },
         { location: { $in: topLocations } },
       ],
       author: { $ne: userId },
-    })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate('location', 'name')
-      .populate('category', 'name')
-      .select('title price photos location category');
+    };
 
-    const favoriteSet = new Set(user.favorites.map(fav => fav.toString()));
-    const adsWithFavorites = recommendedAds.map(ad => ({
+    const { ads, pagination } = await getPaginatedAds({ filter, page, limit });
+
+    const favoriteSet = new Set(favorites.map(fav => fav.toString()));
+    const items = ads.map(ad => ({
       ...ad.toObject(),
       isFavorite: favoriteSet.has(ad._id.toString()),
     }));
 
-    console.log(adsWithFavorites)
+    console.log({ items, pagination })
 
-    res.json(adsWithFavorites);
+    res.json({ items, pagination });
+
   } catch (err) {
     console.error('Ошибка получения рекомендаций:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
