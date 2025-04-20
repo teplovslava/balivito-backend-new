@@ -107,35 +107,33 @@ export const getAds = async (req, res) => {
       location,
       search,
     } = req.query;
-    
-    const viewerId = req.userId;
-    const query = {};
 
-    if (category) query.category = category;
-    if (location) query.location = location;
+    const viewerId = req.userId;
+
+    const filter = {};
+
+    if (category) filter.category = category;
+    if (location) filter.location = location;
     if (search) {
-      query.title = { $regex: new RegExp(search, 'i') };
-      
+      filter.title = { $regex: new RegExp(search, 'i') };
     }
 
-    const ads = await Ad.find(query)
-      .populate('category', 'name')
-      .populate('location', 'name')
-      .sort({ [sort]: order === 'desc' ? -1 : 1 })
-      .skip((+page - 1) * +limit)
-      .limit(+limit);
-
-    const total = await Ad.countDocuments(query);
+    const { ads, pagination } = await getPaginatedAds({
+      filter,
+      page: +page,
+      limit: +limit,
+      sort,
+      order,
+    });
 
     res.json({
       items: ads,
-      total,
-      page: +page,
-      pages: Math.ceil(total / +limit),
+      ...pagination,
     });
 
-    if(viewerId && ads.length) {
-      const newHistoryItems = ads.slice(0, 5).map(ad => ({
+    // Обновляем историю просмотров
+    if (viewerId && ads.length) {
+      const newHistoryItems = ads.slice(0, 5).map((ad) => ({
         ad: ad._id,
         category: ad.category._id,
         location: ad.location._id,
