@@ -128,7 +128,7 @@ export const getAds = async (req, res) => {
 
     res.json({
       items: ads,
-      ...pagination,
+      pagination,
     });
 
     // Обновляем историю просмотров
