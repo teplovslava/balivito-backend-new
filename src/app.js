@@ -29,6 +29,7 @@ app.use('/users', userRoutes);
 app.use('/auth', authRoutes);
 app.use('/ads', adRoutes);
 app.use('/favorites', favoritesRoutes);
+app.use('/feedbacks', feedbacksRoutes);
 app.use('/category', categoryRoutes);
 app.use('/guest', guestRoutes);
 app.use('/location', locationRoutes);
