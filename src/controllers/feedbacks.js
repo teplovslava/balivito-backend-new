@@ -23,11 +23,6 @@ export const setFeedback = async (req, res) => {
       return res.status(404).json({ message: 'Пользователь не найден' });
     }
 
-    const alreadyLeft = targetUser.feedbacks.some(fb => fb.author._id.toString() === authorId);
-    if (alreadyLeft) {
-      return res.status(400).json({ message: 'Вы уже оставили отзыв этому пользователю' });
-    }
-
     const newFeedback = {
       author: {
         _id: authorUser._id,
