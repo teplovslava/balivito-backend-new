@@ -28,15 +28,17 @@ export const setFeedback = async (req, res) => {
       return res.status(400).json({ message: 'Вы уже оставили отзыв этому пользователю' });
     }
 
-    targetUser.feedbacks.push({
-      author: {
-        _id: authorUser._id,
-        name: authorUser.name,
-      },
-      text,
-      rating,
-      createdAt: new Date(),
-    });
+    const newFeedback = {
+        author: {
+          _id: authorUser._id,
+          name: authorUser.name,
+        },
+        text,
+        rating,
+        createdAt: new Date(),
+      }
+
+    targetUser.feedbacks.push(newFeedback);
 
     // Пересчитываем среднюю оценку
     const avgRating = targetUser.feedbacks.reduce((acc, curr) => acc + Number(curr.rating), 0) / targetUser.feedbacks.length;
@@ -44,7 +46,7 @@ export const setFeedback = async (req, res) => {
 
     await targetUser.save();
 
-    res.status(201).json({ message: 'Отзыв добавлен' });
+    res.status(201).json(newFeedback);
   } catch (err) {
     console.error('Ошибка добавления отзыва:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
