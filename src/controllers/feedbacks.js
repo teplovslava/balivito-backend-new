@@ -29,14 +29,14 @@ export const setFeedback = async (req, res) => {
     }
 
     const newFeedback = {
-        author: {
-          _id: authorUser._id,
-          name: authorUser.name,
-        },
-        text,
-        rating,
-        createdAt: new Date(),
-      }
+      author: {
+        _id: authorUser._id,
+        name: authorUser.name,
+      },
+      text,
+      rating,
+      createdAt: new Date(),
+    };
 
     targetUser.feedbacks.push(newFeedback);
 
@@ -46,7 +46,7 @@ export const setFeedback = async (req, res) => {
 
     await targetUser.save();
 
-    res.status(201).json(newFeedback);
+    res.status(201).json({ feedback: newFeedback, rating: targetUser.rating });
   } catch (err) {
     console.error('Ошибка добавления отзыва:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
@@ -56,18 +56,31 @@ export const setFeedback = async (req, res) => {
 export const getFeedback = async (req, res) => {
   try {
     const userId = req.params.id;
+    const { page = 1, limit = 10 } = req.query;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: 'Некорректный ID пользователя' });
     }
 
-    const user = await User.findById(userId).select('feedbacks');
+    const user = await User.findById(userId).select('feedbacks rating');
 
     if (!user) {
       return res.status(404).json({ message: 'Пользователь не найден' });
     }
 
-    res.json(user.feedbacks.slice().reverse());
+    const allFeedbacks = user.feedbacks.slice().reverse();
+    const paginated = allFeedbacks.slice((page - 1) * limit, page * limit);
+
+    res.json({
+      items: paginated,
+      rating: user.rating,
+      pagination: {
+        total: allFeedbacks.length,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(allFeedbacks.length / limit),
+      },
+    });
   } catch (err) {
     console.error('Ошибка получения отзывов:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
@@ -97,6 +110,7 @@ export const deleteFeedback = async (req, res) => {
 
     feedback.remove();
 
+    // Пересчёт рейтинга
     const feedbacks = user.feedbacks;
     const avgRating = feedbacks.length
       ? feedbacks.reduce((acc, curr) => acc + Number(curr.rating), 0) / feedbacks.length
@@ -104,7 +118,7 @@ export const deleteFeedback = async (req, res) => {
     user.rating = Number(avgRating.toFixed(1));
 
     await user.save();
-    res.json({ message: 'Отзыв удалён' });
+    res.json({ message: 'Отзыв удалён', rating: user.rating });
   } catch (err) {
     console.error('Ошибка удаления отзыва:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
