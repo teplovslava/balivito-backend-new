@@ -8,6 +8,7 @@ import userRoutes from './routes/users.js';
 import authRoutes from './routes/auth.js';
 import adRoutes from './routes/ad.js';
 import favoritesRoutes from './routes/favorites.js';
+import feedbacksRoutes from './routes/feedbacks.js'
 import categoryRoutes from './routes/category.js';
 import guestRoutes from './routes/guest.js';
 import locationRoutes from './routes/location.js';
