@@ -16,9 +16,9 @@ const adSchema = new Schema(
       maxlength: 2000,
     },
     price: {
-      type: Number,
-      required: true,
-      min: 0,
+      usd: { type: Number, min: 0 },
+      idr: { type: Number, min: 0 },
+      rub: { type: Number, min: 0 },
     },
     category: {
         type: Schema.Types.ObjectId,

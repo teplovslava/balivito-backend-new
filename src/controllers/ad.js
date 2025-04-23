@@ -10,6 +10,15 @@ import { escapeRegExp } from '../utils/escapeRegExp.js';
 export const createAd = async (req, res) => {
   try {
     const { title, description, price, category, location } = req.body;
+
+    const { usd, idr, rub } = price || {};
+
+    // Проверка: хотя бы одна валюта задана
+    if (usd == undefined && idr == undefined && rub == undefined) {
+      return res.status(400).json({ message: 'Укажите хотя бы одну цену: usd, idr или rub' });
+    }
+
+
     const existingAds = await Ad.find({ author: req.userId, category }).select('title');
 
     const dublicate = existingAds.find((ad) => {
@@ -26,7 +35,7 @@ export const createAd = async (req, res) => {
     const newAd = new Ad({
       title,
       description,
-      price,
+      price: { usd, idr, rub },
       category,
       location,
       photos: photoPaths,
@@ -194,6 +203,8 @@ export const deleteAd = async (req, res) => {
 export const updateAd = async (req, res) => {
   try {
     const { id } = req.params;
+    const { price } = req.body;
+    const { usd, idr, rub } = price || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Некорректный ID объявления' });
@@ -208,14 +219,28 @@ export const updateAd = async (req, res) => {
       return res.status(403).json({ message: 'Нет прав на редактирование' });
     }
 
-    // Обновляем текстовые поля
-    const fieldsToUpdate = ['title', 'description', 'price', 'category', 'location'];
+    // Валидация: если передан price, хотя бы одна валюта должна быть
+    if (price && usd == null && idr == null && rub == null) {
+      return res.status(400).json({ message: 'Укажите хотя бы одну цену' });
+    }
+
+    // Обновляем текстовые и категориальные поля
+    const fieldsToUpdate = ['title', 'description', 'category', 'location'];
     fieldsToUpdate.forEach(field => {
       if (req.body[field] !== undefined) {
         ad[field] = req.body[field];
       }
     });
 
+    // Обновление ценового объекта
+    if (price) {
+      ad.price = ad.price || {};
+      if (usd !== undefined) ad.price.usd = usd;
+      if (idr !== undefined) ad.price.idr = idr;
+      if (rub !== undefined) ad.price.rub = rub;
+    }
+
+    // Обработка фотографий
     if (req.files && req.files.length > 0) {
       ad.photos.forEach(filename => {
         const filepath = path.join('uploads', filename);
@@ -232,7 +257,6 @@ export const updateAd = async (req, res) => {
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
-
 
 export const getRecommendedAds = async (req, res) => {
   try {

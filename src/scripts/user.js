@@ -28,10 +28,18 @@ export const runSeed = async () => {
 
     const ads = [];
     for (let i = 0; i < NUM_ADS; i++) {
+      const currencies = ['usd', 'idr', 'rub'];
+      const selected = faker.helpers.arrayElements(currencies, faker.number.int({ min: 1, max: 3 }));
+
+      const price = {};
+      if (selected.includes('usd')) price.usd = faker.number.int({ min: 100, max: 1000 });
+      if (selected.includes('idr')) price.idr = faker.number.int({ min: 1500000, max: 10000000 });
+      if (selected.includes('rub')) price.rub = faker.number.int({ min: 5000, max: 100000 });
+
       ads.push(new Ad({
         title: faker.commerce.productName(),
         description: faker.commerce.productDescription(),
-        price: faker.number.int({ min: 100, max: 10000 }),
+        price,
         category: faker.helpers.arrayElement(categories)._id,
         location: faker.helpers.arrayElement(locations)._id,
         photos: [faker.image.url(), faker.image.url()],
