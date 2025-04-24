@@ -47,3 +47,22 @@ export const getFavorites = async (req, res) => {
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
+
+export const clearFavorites = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+
+    if (user.favorites.length === 0) {
+      return res.status(200).json({ message: 'Список избранного уже пуст' });
+    }
+
+    user.favorites = [];
+    await user.save();
+
+    res.json({ message: 'Все избранные объявления удалены', favorites: [] });
+  } catch (err) {
+    console.error('Ошибка очистки избранных:', err);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
