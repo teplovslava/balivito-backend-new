@@ -50,6 +50,38 @@ export const createAd = async (req, res) => {
   }
 };
 
+export const getMyAds = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Некорректный пользователь' });
+    }
+
+    // Параметры запроса
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const sortField = req.query.sort || 'createdAt';
+    const sortOrder = req.query.order === 'asc' ? 'asc' : 'desc';
+
+    // Фильтр по автору
+    const filter = { author: userId };
+
+    // Вызов общего метода пагинации
+    const { ads, pagination } = await getPaginatedAds({
+      filter,
+      page,
+      limit,
+      sort: sortField,
+      order: sortOrder,
+    });
+
+    return res.json({ items: ads, pagination });
+  } catch (err) {
+    console.error('Ошибка получения моих объявлений:', err);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
+
 export const getAdById = async (req, res) => {
   try {
     const { id } = req.params;

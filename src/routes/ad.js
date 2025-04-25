@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createAd, deleteAd, getAdById, getAds, getRecommendedAds, getSearchSuggestions, updateAd } from '../controllers/ad.js';
+import { createAd, deleteAd, getAdById, getAds, getMyAds, getRecommendedAds, getSearchSuggestions, updateAd } from '../controllers/ad.js';
 import { createAdValidation } from '../validators/ad.js';
 import { validate } from '../middlewares/validate.js';
 import { authMiddleware } from '../middlewares/auth.js';
@@ -9,6 +9,7 @@ import { compressImages, upload } from '../middlewares/upload.js';
 const router = Router();
 
 router.post('/', authMiddleware, upload.array('photos', 15), compressImages, createAdValidation, validate, createAd);
+router.get('/my', authMiddleware, getMyAds);
 router.get('/all',userIdMiddleware, getAds);
 router.get('/recommended',userIdMiddleware, getRecommendedAds)
 router.get('/search', getSearchSuggestions)
