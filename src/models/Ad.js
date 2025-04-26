@@ -11,7 +11,6 @@ const adSchema = new Schema(
     },
     description: {
       type: String,
-      required: true,
       maxlength: 2000,
     },
     price: {
@@ -44,6 +43,7 @@ const adSchema = new Schema(
     location: {
         type: Schema.Types.ObjectId,
         ref: 'Location',
+        required: true,
       },
   },
   { timestamps: true }
