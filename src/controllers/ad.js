@@ -43,6 +43,7 @@ export const createAd = async (req, res) => {
     });
 
     const savedAd = await newAd.save();
+    console.log(savedAd)
     res.status(201).json(savedAd);
   } catch (error) {
     console.error('Ошибка создания объявления:', error);
