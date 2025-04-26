@@ -20,6 +20,7 @@ const storage = multer.diskStorage({
 export const upload = multer({ storage });
 
 export const compressImages = async (req, res, next) => {
+  console.log('req.files len →', req.files);
   if (!req.files || !req.files.length) return next();
 
   try {

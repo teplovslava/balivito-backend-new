@@ -30,6 +30,8 @@ export const createAd = async (req, res) => {
       return res.status(409).json({ message: 'Похоже, такое объявление уже существует', ad: dublicate });
     }
 
+    console.log(req)
+
     const photoPaths = req.files?.map(file => `${process.env.SITE_URL}/uploads/${file.filename}`) || [];
 
     const newAd = new Ad({
