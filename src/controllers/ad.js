@@ -10,7 +10,6 @@ import { escapeRegExp } from '../utils/escapeRegExp.js';
 export const createAd = async (req, res) => {
   try {
     const { title, description, price, category, location } = req.body;
-    console.log(req.body)
 
     const { usd, idr, rub } = price || {};
 
@@ -44,7 +43,6 @@ export const createAd = async (req, res) => {
     });
 
     const savedAd = await newAd.save();
-    console.log(savedAd)
     res.status(201).json(savedAd);
   } catch (error) {
     console.error('Ошибка создания объявления:', error);
