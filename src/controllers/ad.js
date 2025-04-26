@@ -10,6 +10,7 @@ import { escapeRegExp } from '../utils/escapeRegExp.js';
 export const createAd = async (req, res) => {
   try {
     const { title, description, price, category, location } = req.body;
+    console.log(req.body)
 
     const { usd, idr, rub } = price || {};
 
