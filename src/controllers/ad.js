@@ -78,10 +78,7 @@ export const getMyAds = async (req, res) => {
       extraFields: 'favoriteCount'
     });
 
-    return res.json({ items: {
-      ...ads,
-      favoriteCount: ads.favoriteCount
-    }, pagination });
+    return res.json({ items: ads, pagination });
   } catch (err) {
     console.error('Ошибка получения моих объявлений:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
