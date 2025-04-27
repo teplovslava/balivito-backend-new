@@ -7,13 +7,8 @@ const guestCreationAttempts = new Map();
 export const userIdMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-    console.log(req.cookies)
 
-    res.cookie('guestId', '123', {
-      httpOnly: true,
-      sameSite: 'Lax',
-      maxAge: 1000 * 60 * 60 * 24 * 30 * 365, // 365 дней
-    });
+    console.log(req.cookies)
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
@@ -58,10 +53,10 @@ export const userIdMiddleware = async (req, res, next) => {
 
     await newGuest.save();
 
-    res.cookie('guestId', '123', {
+    res.cookie('guestId', newGuest._id.toString(), {
       httpOnly: true,
       sameSite: 'Lax',
-      maxAge: 1000 * 60 * 60 * 24 * 30 * 365, // 365 дней
+      maxAge: 1000 * 60 * 60 * 24 * 30 * 365, // 30 дней
     });
 
     req.userId = newGuest._id.toString();
