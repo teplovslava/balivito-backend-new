@@ -78,6 +78,8 @@ export const getMyAds = async (req, res) => {
       extraFields: 'favoriteUserIds'
     });
 
+    console.log(ads)
+
     return res.json({ items: {
       ...ads,
       favoritesLength: ads.favoriteUserIds.length
