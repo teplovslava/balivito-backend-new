@@ -4,6 +4,8 @@ export const userIdMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   const guestHeader = req.headers['x-guest-id'];
 
+  console.log(guestHeader, authHeader)
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     if (guestHeader) {
       req.userId = guestHeader;
