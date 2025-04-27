@@ -14,39 +14,29 @@ export const toggleFavorite = async (req, res) => {
     const alreadyFavorite = user.favorites.includes(id);
 
     if (!alreadyFavorite) {
-      await User.updateOne(
-        { _id: req.userId },
-        { $addToSet: { favorites: id } }
-      );
-      await Ad.updateOne(
-        { _id: id },
-        { $addToSet: { favoriteUserIds: user._id } }
-      );
+      user.favorites.push(id);
+      ad.favoriteUserIds.push(user._id);
     } else {
-      await User.updateOne(
-        { _id: req.userId },
-        { $pull: { favorites: id } }
-      );
-      await Ad.updateOne(
-        { _id: id },
-        { $pull: { favoriteUserIds: user._id } }
-      );
+      user.favorites = user.favorites.filter(favId => favId.toString() !== id.toString());
+      ad.favoriteUserIds = ad.favoriteUserIds.filter(uId => uId.toString() !== user._id.toString());
     }
 
-    const updatedAd = await Ad.findById(id);
+    ad.favoriteCount = ad.favoriteUserIds.length;
+
+    await user.save();
+    await ad.save();
 
     res.json({
       message: alreadyFavorite ? 'Удалено из избранного' : 'Добавлено в избранное',
       isFavorite: !alreadyFavorite,
-      favoriteCount: updatedAd.favoriteUserIds.length,
-      ad: updatedAd,
+      favoriteCount: ad.favoriteCount,
+      ad,
     });
   } catch (err) {
     console.error('Ошибка обновления избранного:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
-
 
 export const getFavorites = async (req, res) => {
   try {

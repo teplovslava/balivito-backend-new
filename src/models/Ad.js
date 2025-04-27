@@ -51,6 +51,9 @@ const adSchema = new Schema(
         ref: 'User',
       }
     ],
+    favoriteCount: {
+      type:Number
+    },
     isArchived: {
       type: Boolean,
       default: false,
