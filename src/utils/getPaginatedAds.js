@@ -1,6 +1,6 @@
 import Ad from '../models/Ad.js';
 
-export const getPaginatedAds = async ({ filter = {}, page = 1, limit = 30 }) => {
+export const getPaginatedAds = async ({ filter = {}, page = 1, limit = 30, extraFields='' }) => {
   const skip = (page - 1) * limit;
 
   const [total, ads] = await Promise.all([
@@ -11,7 +11,7 @@ export const getPaginatedAds = async ({ filter = {}, page = 1, limit = 30 }) => 
       .limit(limit)
       .populate('location', 'name')
       .populate('category', 'name')
-      .select('title price photos location category'),
+      .select(`title price photos location category ${extraFields}`)
   ]);
 
   return {
