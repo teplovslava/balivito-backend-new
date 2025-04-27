@@ -7,7 +7,7 @@ const guestCreationAttempts = new Map();
 export const userIdMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
-
+    res.clearCookie('guestId', { path: '/' });
     console.log(req.cookies)
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
