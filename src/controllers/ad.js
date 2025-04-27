@@ -88,6 +88,7 @@ export const getAdById = async (req, res) => {
   try {
     const { id } = req.params;
     const viewerId = req.userId;
+    console.log(viewerId)
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Некорректный ID' });
@@ -101,6 +102,8 @@ export const getAdById = async (req, res) => {
     if (!ad) {
       return res.status(404).json({ message: 'Объявление не найдено' });
     }
+
+    console.log(ad.viewerIds, ad.viewerIds.includes(viewerId))
 
     if (viewerId && !ad.viewerIds.includes(viewerId)) {
       ad.viewerIds.push(viewerId);
