@@ -11,6 +11,7 @@ export const userIdMiddleware = (req, res, next) => {
       req.userId = guestHeader;
     } else {
       req.userId = req?.cookies?.guestId;
+      console.log(req.userId)
     }
     return next();
   }
