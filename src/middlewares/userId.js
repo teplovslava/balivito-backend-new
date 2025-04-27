@@ -8,6 +8,8 @@ export const userIdMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
+    console.log(req.cookies, req.headers)
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       try {
@@ -54,7 +56,7 @@ export const userIdMiddleware = async (req, res, next) => {
     res.cookie('guestId', newGuest._id.toString(), {
       httpOnly: true,
       sameSite: 'Lax',
-      maxAge: 1000 * 60 * 60 * 24 * 30, // 30 дней
+      maxAge: 1000 * 60 * 60 * 24 * 30 * 365, // 30 дней
     });
 
     req.userId = newGuest._id.toString();
