@@ -7,32 +7,58 @@ import { sendVerificationEmail } from '../utils/sendVerificationMail.js';
 export const register = async (req, res) => {
   try {
     const { email, password, name } = req.body;
+    let userWasGuest = false;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ message: 'Пользователь уже существует' });
+      return res.status(409).json({ message: 'Пользователь с таким email уже существует' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = randomBytes(32).toString('hex');
 
-    const newUser = new User({
-      email,
-      name,
-      password: hashedPassword,
-      verificationToken,
-      isVerified: false,
-    });
+    // Пытаемся найти текущего гостя
+    const guestUser = await User.findById(req.userId);
 
-    await newUser.save();
+    if (guestUser && guestUser.isGuest) {
+      userWasGuest = true;
+      // ✅ Обновляем гостя до полноценного пользователя
+      guestUser.email = email;
+      guestUser.name = name;
+      guestUser.password = hashedPassword;
+      guestUser.verificationToken = verificationToken;
+      guestUser.isVerified = false;
+      guestUser.isGuest = false;
 
+      await guestUser.save();
+    } else {
+      // ❗ Если нет гостя — создаём нового пользователя
+      const newUser = new User({
+        email,
+        name,
+        password: hashedPassword,
+        verificationToken,
+        isVerified: false,
+      });
+
+      await newUser.save();
+    }
+
+    // Отправляем письмо
     try {
       const result = await sendVerificationEmail(email, verificationToken);
-      console.log(result)
+      console.log('Письмо отправлено:', result);
+
+      // Очищаем куку гостя после успешной регистрации
+      res.clearCookie('guestId', { path: '/' });
+
       res.status(201).json({ message: 'Пользователь зарегистрирован. Проверьте почту для подтверждения.' });
     } catch (emailErr) {
-      await User.deleteOne({ email });
       console.error('Ошибка отправки письма:', emailErr);
+
+      // если ошибка при отправке письма — удаляем созданного юзера
+      if(!userWasGuest) await User.deleteOne({ email });
+
       res.status(500).json({ message: 'Ошибка отправки письма. Попробуйте позже.' });
     }
   } catch (error) {
@@ -40,6 +66,7 @@ export const register = async (req, res) => {
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
+
 
 export const login = async (req, res) => {
   try {
