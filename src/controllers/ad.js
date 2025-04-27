@@ -75,14 +75,12 @@ export const getMyAds = async (req, res) => {
       limit,
       sort: sortField,
       order: sortOrder,
-      extraFields: 'favoriteUserIds'
+      extraFields: 'favoriteCount'
     });
-
-    console.log(ads)
 
     return res.json({ items: {
       ...ads,
-      favoritesLength: ads.favoriteUserIds.length
+      favoriteCount: ads.favoriteCount
     }, pagination });
   } catch (err) {
     console.error('Ошибка получения моих объявлений:', err);
