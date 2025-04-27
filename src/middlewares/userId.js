@@ -7,6 +7,7 @@ const guestCreationAttempts = new Map();
 export const userIdMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    console.log(req.cookies)
 
     res.cookie('guestId', '123', {
       httpOnly: true,
