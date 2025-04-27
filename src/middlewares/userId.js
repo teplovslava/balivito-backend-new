@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 
 export const userIdMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
-  const guestHeader = req.headers['x-guest-id'];
+  const guestHeader = req.headers['X-Guest-ID'];
 
   console.log(guestHeader, authHeader)
 
