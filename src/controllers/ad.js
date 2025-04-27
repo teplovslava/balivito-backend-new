@@ -154,7 +154,7 @@ export const getAds = async (req, res) => {
 
     const viewerId = req.userId;
 
-    const filter = {};
+    const filter = { isArchived: false };
 
     if (category) filter.category = category;
     if (location) filter.location = location;
@@ -298,8 +298,6 @@ export const getRecommendedAds = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 30;
 
-    console.log(page, limit)
-
     if (!userId) {
       return res.status(400).json({ message: 'Неизвестный пользователь' });
     }
@@ -356,6 +354,7 @@ export const getRecommendedAds = async (req, res) => {
         { location: { $in: topLocations } },
       ],
       author: { $ne: userId },
+      isArchived: false,
     };
 
     const { ads, pagination } = await getPaginatedAds({ filter, page, limit });
@@ -413,6 +412,48 @@ export const getSearchSuggestions = async (req, res) => {
     res.json(suggestions.map((s) => s.title));
   } catch (err) {
     console.error('Ошибка подсказок:', err);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
+
+export const archiveAd = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const ad = await Ad.findById(id);
+    if (!ad) return res.status(404).json({ message: 'Объявление не найдено' });
+
+    if (ad.author.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Нет прав на архивирование этого объявления' });
+    }
+
+    ad.isArchived = true;
+    await ad.save();
+
+    res.json({ message: 'Объявление архивировано', ad });
+  } catch (err) {
+    console.error('Ошибка архивирования объявления:', err);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
+
+export const unarchiveAd = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const ad = await Ad.findById(id);
+    if (!ad) return res.status(404).json({ message: 'Объявление не найдено' });
+
+    if (ad.author.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Нет прав на восстановление этого объявления' });
+    }
+
+    ad.isArchived = false;
+    await ad.save();
+
+    res.json({ message: 'Объявление восстановлено из архива', ad });
+  } catch (err) {
+    console.error('Ошибка восстановления объявления:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };

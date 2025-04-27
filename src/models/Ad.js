@@ -45,6 +45,16 @@ const adSchema = new Schema(
         ref: 'Location',
         required: true,
       },
+    favoriteUserIds: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      }
+    ],
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

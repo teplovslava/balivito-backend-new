@@ -3,30 +3,50 @@ import Ad from '../models/Ad.js';
 
 export const toggleFavorite = async (req, res) => {
   try {
-    const user = await User.findById(req.userId);
     const { id } = req.params;
 
+    const user = await User.findById(req.userId);
     if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
 
     const ad = await Ad.findById(id);
     if (!ad) return res.status(404).json({ message: 'Объявление не найдено' });
 
-    const index = user.favorites.indexOf(id);
+    const alreadyFavorite = user.favorites.includes(id);
 
-    if (index === -1) {
-      user.favorites.push(id);
+    if (!alreadyFavorite) {
+      await User.updateOne(
+        { _id: req.userId },
+        { $addToSet: { favorites: id } }
+      );
+      await Ad.updateOne(
+        { _id: id },
+        { $addToSet: { favoriteUserIds: user._id } }
+      );
     } else {
-      user.favorites.splice(index, 1);
+      await User.updateOne(
+        { _id: req.userId },
+        { $pull: { favorites: id } }
+      );
+      await Ad.updateOne(
+        { _id: id },
+        { $pull: { favoriteUserIds: user._id } }
+      );
     }
 
-    await user.save();
+    const updatedAd = await Ad.findById(id);
 
-    res.json({ message: index === -1 ? 'Добавлено в избранное' : 'Удалено из избранного', isFavorite: index === -1, ad });
+    res.json({
+      message: alreadyFavorite ? 'Удалено из избранного' : 'Добавлено в избранное',
+      isFavorite: !alreadyFavorite,
+      favoriteCount: updatedAd.favoriteUserIds.length,
+      ad: updatedAd,
+    });
   } catch (err) {
     console.error('Ошибка обновления избранного:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
+
 
 export const getFavorites = async (req, res) => {
   try {
