@@ -6,6 +6,8 @@ services:
     env_file: .env                                           # файл кладёт deploy‑job; на сервере рядом с compose
     ports:
       - "${PORT}:${PORT}"                                  # порт берётся из .env
+    volumes:
+      - uploads-data:/app/uploads 
     depends_on:
       mongo:
         condition: service_healthy
@@ -31,3 +33,4 @@ services:
 
 volumes:
   mongo-data:
+  uploads-data:
