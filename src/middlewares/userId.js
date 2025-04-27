@@ -9,7 +9,6 @@ export const userIdMiddleware = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     console.log(req.cookies)
-    res.clearCookie('guestId', { path: '/' });
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
