@@ -2,7 +2,32 @@ import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
 import { sendVerificationEmail } from '../utils/sendVerificationMail.js';
+
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+const createTokens = (userId) => {
+  const accessToken = jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: '15m' });
+  const refreshToken = jwt.sign({ id: userId }, JWT_REFRESH_SECRET, { expiresIn: '30d' });
+
+  return { accessToken, refreshToken };
+};
+
+const setTokenCookies = (res, accessToken, refreshToken) => {
+  res.cookie('token', accessToken, {
+    httpOnly: true,
+    sameSite: 'Lax',
+    maxAge: 1000 * 60 * 15,
+  });
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    sameSite: 'Lax',
+    maxAge: 1000 * 60 * 60 * 24 * 30,
+  });
+};
 
 export const register = async (req, res) => {
   try {
@@ -17,12 +42,11 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = randomBytes(32).toString('hex');
 
-    // Пытаемся найти текущего гостя
     const guestUser = await User.findById(req.userId);
+    let finalUser;
 
     if (guestUser && guestUser.isGuest) {
       userWasGuest = true;
-      // ✅ Обновляем гостя до полноценного пользователя
       guestUser.email = email;
       guestUser.name = name;
       guestUser.password = hashedPassword;
@@ -31,8 +55,8 @@ export const register = async (req, res) => {
       guestUser.isGuest = false;
 
       await guestUser.save();
+      finalUser = guestUser;
     } else {
-      // ❗ Если нет гостя — создаём нового пользователя
       const newUser = new User({
         email,
         name,
@@ -42,23 +66,20 @@ export const register = async (req, res) => {
       });
 
       await newUser.save();
+      finalUser = newUser;
     }
 
-    // Отправляем письмо
     try {
-      const result = await sendVerificationEmail(email, verificationToken);
-      console.log('Письмо отправлено:', result);
+      await sendVerificationEmail(email, verificationToken);
 
-      // Очищаем куку гостя после успешной регистрации
-      res.clearCookie('guestId', { path: '/' });
+      const { accessToken, refreshToken } = createTokens(finalUser._id);
+      setTokenCookies(res, accessToken, refreshToken);
 
-      res.status(201).json({ message: 'Пользователь зарегистрирован. Проверьте почту для подтверждения.' });
+      res.status(201).json({ message: 'Пользователь зарегистрирован. Проверьте почту.' });
     } catch (emailErr) {
       console.error('Ошибка отправки письма:', emailErr);
 
-      // если ошибка при отправке письма — удаляем созданного юзера
-      if(!userWasGuest) await User.deleteOne({ email });
-
+      if (!userWasGuest) await User.deleteOne({ email });
       res.status(500).json({ message: 'Ошибка отправки письма. Попробуйте позже.' });
     }
   } catch (error) {
@@ -67,77 +88,70 @@ export const register = async (req, res) => {
   }
 };
 
-
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: 'Неверный email или пароль' });
-    }
+    if (!user) return res.status(401).json({ message: 'Неверный email или пароль' });
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Неверный email или пароль' });
-    }
+    if (!isPasswordValid) return res.status(401).json({ message: 'Неверный email или пароль' });
 
-    if(!user.isVerified) {
+    if (!user.isVerified) {
       const verificationToken = randomBytes(32).toString('hex');
       user.verificationToken = verificationToken;
       await user.save();
       await sendVerificationEmail(email, verificationToken);
-      return res.status(401).json({ message: 'Пользователь не верифицирован, отправили письмо на почту' });
+      return res.status(401).json({ message: 'Подтвердите почту. Ссылка отправлена повторно.' });
     }
 
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '30d' }
-    );
+    const { accessToken, refreshToken } = createTokens(user._id);
+    setTokenCookies(res, accessToken, refreshToken);
 
     const { password: _, ...userData } = user.toObject();
-
-    res.status(200).json({ user: userData, token });
+    res.status(200).json({ user: userData });
   } catch (error) {
     console.error('Ошибка при входе:', error);
     res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
 
+export const logout = (req, res) => {
+  res.clearCookie('token');
+  res.clearCookie('refreshToken');
+  res.status(200).json({ message: 'Вы вышли из аккаунта' });
+};
+
 export const verifyEmail = async (req, res) => {
   try {
     const { email, token } = req.query;
-    const user = await User.findOne({ email});
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res.render('verify', {
         title: 'Упс...',
         color: 'red',
-        message: 'Кажется, такого пользователя не существует!'
+        message: 'Пользователь не найден.'
       });
-      
     }
 
     if (user.isVerified) {
       return res.render('verify', {
         title: '✅ Успех!',
         color: '#27ae60',
-        message: 'Ваша почта уже подтверждена!'
+        message: 'Ваша почта уже подтверждена.'
       });
     }
 
     const cooldown = 60 * 1000;
     const maxAttempts = 10;
 
-    if (
-      user.lastVerificationAttempt &&
-      Date.now() - user.lastVerificationAttempt.getTime() < cooldown
-    ) {
+    if (user.lastVerificationAttempt && Date.now() - user.lastVerificationAttempt.getTime() < cooldown) {
       return res.render('verify', {
         title: 'Упс...',
         color: 'red',
-        message: 'Кажется слишком много попыток, попробуйте через 1 минуту!'
+        message: 'Слишком много попыток. Подождите минуту.'
       });
     }
 
@@ -150,7 +164,7 @@ export const verifyEmail = async (req, res) => {
       return res.render('verify', {
         title: 'Упс...',
         color: 'red',
-        message: 'Слишком много попыток. Запросите новый код.'
+        message: 'Слишком много попыток. Запросите код повторно.'
       });
     }
 
@@ -164,7 +178,7 @@ export const verifyEmail = async (req, res) => {
       return res.render('verify', {
         title: '✅ Успех!',
         color: '#27ae60',
-        message: 'Вы подтвердили почту. Спасибо!'
+        message: 'Почта успешно подтверждена!'
       });
     }
 
@@ -182,23 +196,47 @@ export const resendVerification = async (req, res) => {
 
     const user = await User.findOne({ email: email.toLowerCase() });
 
-    if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
-    }
+    if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+    if (user.isVerified) return res.status(400).json({ message: 'Почта уже подтверждена' });
 
-    if (user.isVerified) {
-      return res.status(400).json({ message: 'Почта уже подтверждена' });
-    }
-    
-    const newToken = crypto.randomBytes(32).toString('hex');
+    const newToken = randomBytes(32).toString('hex');
     user.verificationToken = newToken;
     await user.save();
 
     await sendVerificationEmail(user.email, newToken);
-
-    res.json({ message: 'Письмо с подтверждением отправлено повторно' });
+    res.json({ message: 'Письмо отправлено повторно' });
   } catch (err) {
-    console.error('Ошибка повторной отправки:', err);
+    console.error('Ошибка отправки письма:', err);
     res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
+
+
+export const refreshSession = async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) return res.status(401).json({ message: 'Нет refresh токена' });
+
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+
+    const newAccessToken = jwt.sign({ id: decoded.id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    const newRefreshToken = jwt.sign({ id: decoded.id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
+
+    res.cookie('token', newAccessToken, {
+      httpOnly: true,
+      sameSite: 'Lax',
+      maxAge: 1000 * 60 * 15,
+    });
+
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      sameSite: 'Lax',
+      maxAge: 1000 * 60 * 60 * 24 * 30,
+    });
+
+    res.status(200).json({ message: 'Токены обновлены' });
+  } catch (err) {
+    console.error('Ошибка при refresh:', err);
+    res.status(401).json({ message: 'Невалидный refresh токен' });
   }
 };

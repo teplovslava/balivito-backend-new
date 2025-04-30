@@ -1,49 +1,49 @@
 import jwt from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid';
 import User from '../models/User.js';
+import { v4 as uuidv4 } from 'uuid';
 
-const guestCreationAttempts = new Map();
+const JWT_SECRET = process.env.JWT_SECRET;
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
-export const userIdMiddleware = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
+export const userId = async (req, res, next) => {
+  const token = req.cookies.token;
+  const refreshToken = req.cookies.refreshToken;
 
-    console.log(req.cookies)
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.userId = decoded.id;
-        return next();
-      } catch (err) {
-        return res.status(401).json({ message: 'Недействительный токен' });
-      }
-    }
-
-    const guestId = req.cookies?.guestId;
-
-    if (guestId) {
-      req.userId = guestId;
+  // 👉 1. Проверка access-токена
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.userId = decoded.id;
       return next();
+    } catch (err) {
+      // токен протух — пробуем refresh
     }
+  }
 
-    // --- Ограничение на 2 создания за 1 минуту ---
-    const now = Date.now();
-    const attempts = guestCreationAttempts.get(req.ip) || [];
+  // 👉 2. Проверка refresh-токена
+  if (refreshToken) {
+    try {
+      const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
 
-    // Оставляем только попытки за последние 60 секунд
-    const recentAttempts = attempts.filter(timestamp => now - timestamp < 60 * 1000);
+      // генерируем новый access
+      const newAccessToken = jwt.sign({ id: decoded.id }, JWT_SECRET, { expiresIn: '15m' });
 
-    if (recentAttempts.length >= 2) {
-      return res.status(429).json({ message: 'Слишком много попыток создать гостя. Попробуйте позже.' });
+      res.cookie('token', newAccessToken, {
+        httpOnly: true,
+        sameSite: 'Lax',
+        maxAge: 1000 * 60 * 15,
+      });
+
+      req.userId = decoded.id;
+      return next();
+    } catch (err) {
+      // ❌ refresh протух — НИКАКОГО создания гостя
+      return res.status(401).json({ message: 'Сессия истекла. Пожалуйста, залогиньтесь заново.' });
     }
+  }
 
-    // Добавляем новую попытку
-    recentAttempts.push(now);
-    guestCreationAttempts.set(req.ip, recentAttempts);
-
-    // --- Создаем нового гостя ---
+  // 👉 3. Нет токенов вообще — создаём нового гостя
+  try {
     const newGuest = new User({
       isGuest: true,
       name: `Guest_${uuidv4().slice(0, 6)}`,
@@ -53,16 +53,25 @@ export const userIdMiddleware = async (req, res, next) => {
 
     await newGuest.save();
 
-    res.cookie('guestId', newGuest._id.toString(), {
+    const guestAccessToken = jwt.sign({ id: newGuest._id }, JWT_SECRET, { expiresIn: '15m' });
+    const guestRefreshToken = jwt.sign({ id: newGuest._id }, REFRESH_SECRET, { expiresIn: '30d' });
+
+    res.cookie('token', guestAccessToken, {
       httpOnly: true,
       sameSite: 'Lax',
-      maxAge: 1000 * 60 * 60 * 24 * 30 * 365, // 30 дней
+      maxAge: 1000 * 60 * 15,
+    });
+
+    res.cookie('refreshToken', guestRefreshToken, {
+      httpOnly: true,
+      sameSite: 'Lax',
+      maxAge: 1000 * 60 * 60 * 24 * 30,
     });
 
     req.userId = newGuest._id.toString();
-    next();
-  } catch (err) {
-    console.error('Ошибка в userIdentityMiddleware:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    return next();
+  } catch (guestErr) {
+    console.error('Ошибка при создании гостя:', guestErr);
+    return res.status(500).json({ message: 'Ошибка при создании гостевого пользователя' });
   }
 };
