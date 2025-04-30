@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
-export const userId = async (req, res, next) => {
+export const userIdMiddleware = async (req, res, next) => {
   const token = req.cookies.token;
   const refreshToken = req.cookies.refreshToken;
 
