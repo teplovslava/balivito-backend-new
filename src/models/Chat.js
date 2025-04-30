@@ -1,12 +1,14 @@
-const chatSchema = new mongoose.Schema({
+import { Schema, model } from 'mongoose';
+
+const chatSchema = new Schema({
     ad: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: 'Ad',
       required: true,
     },
     participants: [
       {
-        type: mongoose.Schema.Types.ObjectId,
+        type: Schema.Types.ObjectId,
         ref: 'User',
         required: true,
       }
