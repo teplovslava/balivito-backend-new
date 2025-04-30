@@ -43,6 +43,7 @@ jobs:
       PORT:           ${{ vars.PORT }}
       MONGODB_URI:    ${{ vars.MONGODB_URI }}
       JWT_SECRET:     ${{ secrets.JWT_SECRET }}
+      JWT_REFRESH_SECRET: ${{JWT_REFRESH_SECRET}}
       JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
       MAIL_ADDRESS:   ${{ vars.MAIL_ADDRESS }}
       MAIL_PASSWORD:  ${{ secrets.MAIL_PASSWORD }}
@@ -68,6 +69,7 @@ jobs:
             echo "PORT=$PORT"
             echo "MONGODB_URI=$MONGODB_URI"
             echo "JWT_SECRET=$JWT_SECRET"
+            echo "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET"
             echo "JWT_EXPIRES_IN=$JWT_EXPIRES_IN"
             echo "MAIL_ADDRESS=$MAIL_ADDRESS"
             echo "MAIL_PASSWORD=$MAIL_PASSWORD"
@@ -80,6 +82,7 @@ jobs:
             PORT=$PORT
             MONGODB_URI=$MONGODB_URI
             JWT_SECRET=$JWT_SECRET
+            JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET
             JWT_EXPIRES_IN=$JWT_EXPIRES_IN
             SITE_URL=$SITE_URL
             MAIL_ADDRESS=$MAIL_ADDRESS
@@ -87,7 +90,7 @@ jobs:
             EOF
 
             echo "🐳 Логинимся в GitHub Container Registry"
-            echo "$GHCR_PAT" | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin || true
+            echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin || true
 
             echo "⬇️ Тянем новый образ"
             docker pull ${{ env.REGISTRY_IMAGE }}
