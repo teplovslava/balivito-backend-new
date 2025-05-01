@@ -1,10 +1,12 @@
 import jwt from 'jsonwebtoken';
+import cookie from 'cookie';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
 export const socketAuth = (socket, next) => {
-  console.log(123121)
-  const token = socket.handshake.auth?.token;
+  const rawCookie = socket.handshake.headers?.cookie;
+  const parsedCookies = cookie.parse(rawCookie || '');
+  const token = parsedCookies.token;
 
   if (!token) {
     return next(new Error('Отсутствует токен'));
