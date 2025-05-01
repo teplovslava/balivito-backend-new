@@ -282,7 +282,7 @@ export const updateAd = async (req, res) => {
         if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
       });
 
-      ad.photos = req.files.map(file => file.filename);
+      ad.photos = req.files.map(file => `${process.env.SITE_URL}/uploads/${file.filename}`);
     }
 
     const updated = await ad.save();

@@ -14,7 +14,7 @@ router.get('/all',userIdMiddleware, getAds);
 router.get('/recommended',userIdMiddleware, getRecommendedAds)
 router.get('/search', getSearchSuggestions)
 router.delete('/delete/:id', authMiddleware, deleteAd);
-router.patch('/:id', authMiddleware,upload.array('photos', 15), compressImages, createAdValidation, validate, updateAd);
+router.patch('/:id', authMiddleware, upload.array('photos', 15), compressImages, createAdValidation, validate, updateAd);
 router.get('/:id', userIdMiddleware, getAdById);
 router.patch('/:id/archive', authMiddleware, archiveAd);
 router.patch('/:id/unarchive', authMiddleware, unarchiveAd);
