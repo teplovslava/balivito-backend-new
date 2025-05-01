@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET;
 
 export const socketAuth = (socket, next) => {
+  console.log(123121)
   const token = socket.handshake.auth?.token;
 
   if (!token) {

@@ -18,7 +18,6 @@ export const createAd = async (req, res) => {
       return res.status(400).json({ message: 'Укажите хотя бы одну цену: usd, idr или rub' });
     }
 
-
     const existingAds = await Ad.find({ author: req.userId, category }).select('title');
 
     const dublicate = existingAds.find((ad) => {
@@ -29,8 +28,6 @@ export const createAd = async (req, res) => {
     if (dublicate) {
       return res.status(409).json({ message: 'Похоже, такое объявление уже существует', ad: dublicate });
     }
-
-    console.log(req)
 
     const photoPaths = req.files?.map(file => `${process.env.SITE_URL}/uploads/${file.filename}`) || [];
 
