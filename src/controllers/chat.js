@@ -83,7 +83,7 @@ export const getMessages = async (socket, { chatId, page = 1, limit = 20 }, call
     }
 };
 
-export const sendMessage = async (socket, io, { chatId, adId, recipientId, text = '', mediaUrl = '', mediaType = '' }) => {
+export const sendMessage = async (socket, io, { chatId, adId, recipientId, text = '', mediaUrl = '', mediaType = '' }, callback) => {
     try {
       console.log(adId, recipientId, text)
       const senderId = socket.userId;
@@ -133,8 +133,8 @@ export const sendMessage = async (socket, io, { chatId, adId, recipientId, text 
       await chat.save();
   
       socket.join(chat._id.toString());
-  
-      io.to(chat._id.toString()).emit('new_message', {
+
+      const newMessage = {
         _id: message._id,
         chatId: chat._id,
         sender: message.sender,
@@ -142,7 +142,13 @@ export const sendMessage = async (socket, io, { chatId, adId, recipientId, text 
         mediaUrl: message.mediaUrl,
         mediaType: message.mediaType,
         createdAt: message.createdAt
-      });
+      };
+  
+      io.to(chat._id.toString()).emit('new_message', newMessage);
+      callback({
+        success: true,
+        newMessage
+      })
     } catch (err) {
       console.error('Ошибка при отправке сообщения:', err);
     }
