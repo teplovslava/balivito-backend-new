@@ -2,20 +2,46 @@ import Chat from '../models/Chat.js';
 import Message from '../models/Message.js';
 
 export const getUserChats = async (socket, data, callback) => {
-    const userId = socket.userId;
-  
-    try {
-      const chats = await Chat.find({ participants: userId })
-        .populate('ad')
-        .populate('participants')
-        .sort({ updatedAt: -1 });
-  
-      callback({ success: true, chats });
-    } catch (err) {
-      console.error(err);
-      callback({ success: false, error: 'Ошибка при получении чатов' });
-    }
+  const userId = socket.userId;
+
+  try {
+    const chats = await Chat.find({ participants: userId })
+      .populate({
+        path: 'ad',
+        select: 'title photos',
+      })
+      .populate({
+        path: 'participants',
+        select: 'name email',
+      })
+      .sort({ updatedAt: -1 });
+
+    const enrichedChats = chats.map(chat => {
+      const companion = chat.participants.find(p => p._id.toString() !== userId);
+
+      return {
+        _id: chat._id,
+        updatedAt: chat.updatedAt,
+        lastMessage: chat.lastMessage,
+        unreadCounts: chat.unreadCounts,
+        ad: chat.ad
+          ? {
+              _id: chat.ad._id,
+              title: chat.ad.title,
+              photo: chat.ad.photos?.[0] || null,
+            }
+          : null,
+        companion, // 👤 собеседник
+      };
+    });
+
+    callback({ success: true, chats: enrichedChats });
+  } catch (err) {
+    console.error(err);
+    callback({ success: false, error: 'Ошибка при получении чатов' });
+  }
 };
+
 
 export const connectUser = async (socket) => {
     try {
