@@ -83,16 +83,23 @@ export const getMessages = async (socket, { chatId, page = 1, limit = 20 }, call
     }
 };
 
-export const sendMessage = async (socket, io, { adId, recipientId, text = '', mediaUrl = '', mediaType = '' }) => {
+export const sendMessage = async (socket, io, { chatId, adId, recipientId, text = '', mediaUrl = '', mediaType = '' }) => {
     try {
       console.log(adId, recipientId, text)
       const senderId = socket.userId;
+
+      let chat
+      if(chatId) {
+        chat = await Chat.findById(chatId);
+      } else {
+        chat = await Chat.findOne({
+          ad: adId,
+          participants: { $all: [senderId, recipientId], $size: 2 }
+        });
+    
+      }
   
-      let chat = await Chat.findOne({
-        ad: adId,
-        participants: { $all: [senderId, recipientId], $size: 2 }
-      });
-  
+
       if (!chat) {
         chat = await Chat.create({
           ad: adId,
