@@ -117,12 +117,6 @@ export const login = async (req, res) => {
   }
 };
 
-export const logout = (req, res) => {
-  res.clearCookie('token');
-  res.clearCookie('refreshToken');
-  res.status(200).json({ message: 'Вы вышли из аккаунта' });
-};
-
 export const verifyEmail = async (req, res) => {
   try {
     const { email, token } = req.query;
@@ -239,4 +233,20 @@ export const refreshSession = async (req, res) => {
     console.error('Ошибка при refresh:', err);
     res.status(401).json({ message: 'Невалидный refresh токен' });
   }
+};
+
+export const logout = (req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    sameSite: 'Lax',
+    secure: true,
+  });
+
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    sameSite: 'Lax',
+    secure: true,
+  });
+
+  res.status(200).json({ message: 'Вы вышли из аккаунта' });
 };
