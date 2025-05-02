@@ -5,6 +5,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 export const socketAuth = (socket, next) => {
   const rawCookie = socket.handshake.headers?.cookie;
+
+  console.log(socket.handshake.headers)
   const parsedCookies = cookie.parse(rawCookie || '');
   const token = parsedCookies.token;
 
