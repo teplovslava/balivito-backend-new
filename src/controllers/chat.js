@@ -56,6 +56,7 @@ export const getMessages = async (socket, { chatId, page = 1, limit = 20 }, call
 
 export const sendMessage = async (socket, io, { adId, recipientId, text = '', mediaUrl = '', mediaType = '' }) => {
     try {
+      console.log(adId, recipientId, text)
       const senderId = socket.userId;
   
       let chat = await Chat.findOne({
