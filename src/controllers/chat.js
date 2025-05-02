@@ -18,12 +18,16 @@ export const getUserChats = async (socket, data, callback) => {
 
     const enrichedChats = chats.map(chat => {
       const companion = chat.participants.find(p => p._id.toString() !== userId);
+      const unreadCount = chat.unreadCounts?.get(userId.toString()) || 0;
 
       return {
         _id: chat._id,
         updatedAt: chat.updatedAt,
-        lastMessage: chat.lastMessage,
-        unreadCounts: chat.unreadCounts,
+        lastMessage: {
+          text: chat.lastMessage?.text || '',
+          date: chat.lastMessage?.date || null,
+          unreadCount, // ✅ только для текущего пользователя
+        },
         ad: chat.ad
           ? {
               _id: chat.ad._id,
@@ -31,7 +35,7 @@ export const getUserChats = async (socket, data, callback) => {
               photo: chat.ad.photos?.[0] || null,
             }
           : null,
-        companion, // 👤 собеседник
+        companion,
       };
     });
 
@@ -41,7 +45,6 @@ export const getUserChats = async (socket, data, callback) => {
     callback({ success: false, error: 'Ошибка при получении чатов' });
   }
 };
-
 
 export const connectUser = async (socket) => {
     try {
