@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import { authMiddleware, requireAuthorizedUser } from '../middlewares/auth.js';
-import { userIdMiddleware } from '../middlewares/userId.js';
+import { requireAuthorizedUser } from '../middlewares/auth.js';
+
 import {
   getFeedback,
   setFeedback,
