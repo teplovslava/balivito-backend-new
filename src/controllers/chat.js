@@ -86,7 +86,7 @@ export const getMessages = async (socket, { chatId, page = 1, limit = 20 }, call
 export const sendMessage = async (
   socket,
   io,
-  { chatId, adId, recipientId, text = '', mediaUrls = [], mediaType = '' },
+  { chatId, adId, recipientId, text = '', mediaUrl = [], mediaType = '' },
   callback
 ) => {
   try {
@@ -117,7 +117,7 @@ export const sendMessage = async (
       chatId: chat._id,
       sender: senderId,
       text,
-      mediaUrls,     // ✅ массив ссылок
+      mediaUrl,     // ✅ массив ссылок
       mediaType,     // например: 'image'
     });
 
@@ -148,7 +148,7 @@ export const sendMessage = async (
       chatId: chat._id,
       sender: message.sender,
       text: message.text,
-      mediaUrls: message.mediaUrls, // ✅
+      mediaUrl: message.mediaUrl, // ✅
       mediaType: message.mediaType,
       createdAt: message.createdAt,
     };
