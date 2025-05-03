@@ -16,7 +16,7 @@ const messageSchema = new Schema({
     default: ''
   },
   mediaUrl: {
-    type: String, // ссылка на изображение
+    type: String[], // ссылка на изображение
     default: ''
   },
   mediaType: {

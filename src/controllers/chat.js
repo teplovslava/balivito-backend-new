@@ -83,78 +83,84 @@ export const getMessages = async (socket, { chatId, page = 1, limit = 20 }, call
     }
 };
 
-export const sendMessage = async (socket, io, { chatId, adId, recipientId, text = '', mediaUrl = '', mediaType = '' }, callback) => {
-    try {
-      console.log(adId, recipientId, text)
-      const senderId = socket.userId;
+export const sendMessage = async (
+  socket,
+  io,
+  { chatId, adId, recipientId, text = '', mediaUrls = [], mediaType = '' },
+  callback
+) => {
+  try {
+    const senderId = socket.userId;
 
-      let chat
-      if(chatId) {
-        chat = await Chat.findById(chatId);
-      } else {
-        chat = await Chat.findOne({
-          ad: adId,
-          participants: { $all: [senderId, recipientId], $size: 2 }
-        });
-    
-      }
-  
-
-      if (!chat) {
-        chat = await Chat.create({
-          ad: adId,
-          participants: [senderId, recipientId],
-          unreadCounts: {
-            [senderId]: 0,
-            [recipientId]: 0
-          }
-        });
-      }
-  
-      const message = await Message.create({
-        chatId: chat._id,
-        sender: senderId,
-        text,
-        mediaUrl,
-        mediaType
+    let chat;
+    if (chatId) {
+      chat = await Chat.findById(chatId);
+    } else {
+      chat = await Chat.findOne({
+        ad: adId,
+        participants: { $all: [senderId, recipientId], $size: 2 },
       });
-  
-      const anotherUserId = chat.participants.find(id => id.toString() !== senderId);
-  
-      chat.lastMessage = {
-        text: text || '[Изображение]',
-        date: new Date()
-      };
-
-      chat.markModified('lastMessage'); 
-  
-      if (anotherUserId) {
-        chat.unreadCounts.set(anotherUserId.toString(), (chat.unreadCounts.get(anotherUserId.toString()) || 0) + 1);
-      }
-  
-      await chat.save();
-  
-      socket.join(chat._id.toString());
-
-      const newMessage = {
-        _id: message._id,
-        chatId: chat._id,
-        sender: message.sender,
-        text: message.text,
-        mediaUrl: message.mediaUrl,
-        mediaType: message.mediaType,
-        createdAt: message.createdAt
-      };
-  
-      io.to(chat._id.toString()).emit('new_message', newMessage);
-      callback({
-        success: true,
-        newMessage
-      })
-    } catch (err) {
-      console.error('Ошибка при отправке сообщения:', err);
     }
+
+    if (!chat) {
+      chat = await Chat.create({
+        ad: adId,
+        participants: [senderId, recipientId],
+        unreadCounts: {
+          [senderId]: 0,
+          [recipientId]: 0,
+        },
+      });
+    }
+
+    const message = await Message.create({
+      chatId: chat._id,
+      sender: senderId,
+      text,
+      mediaUrls,     // ✅ массив ссылок
+      mediaType,     // например: 'image'
+    });
+
+    const anotherUserId = chat.participants.find(
+      (id) => id.toString() !== senderId
+    );
+
+    chat.lastMessage = {
+      text: text || '[Изображения]',
+      date: new Date(),
+    };
+
+    chat.markModified('lastMessage');
+
+    if (anotherUserId) {
+      chat.unreadCounts.set(
+        anotherUserId.toString(),
+        (chat.unreadCounts.get(anotherUserId.toString()) || 0) + 1
+      );
+    }
+
+    await chat.save();
+
+    socket.join(chat._id.toString());
+
+    const newMessage = {
+      _id: message._id,
+      chatId: chat._id,
+      sender: message.sender,
+      text: message.text,
+      mediaUrls: message.mediaUrls, // ✅
+      mediaType: message.mediaType,
+      createdAt: message.createdAt,
+    };
+
+    io.to(chat._id.toString()).emit('new_message', newMessage);
+
+    callback({ success: true, newMessage });
+  } catch (err) {
+    console.error('Ошибка при отправке сообщения:', err);
+  }
 };
+
 
 export const readChat = async (socket, { chatId }) => {
     const chat = await Chat.findById(chatId);
