@@ -30,6 +30,7 @@ export const compressImages = async (req, res, next) => {
       const compressedPath = path.join(uploadDir, file.filename);
 
       await sharp(file.path)
+        .rotate() 
         .jpeg({ quality: 60 })
         .toFile(compressedPath);
 
