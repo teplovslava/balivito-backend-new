@@ -166,5 +166,6 @@ export const readChat = async (socket, { chatId }) => {
   
 export const uploadChatPhotos = async(req,res) => {
   const photoPaths = req.files?.map(file => `${process.env.SITE_URL}/uploads/${file.filename}`) || [];
+  console.log(photoPaths)
   res.status(201).json(photoPaths);
 }
