@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { requireAuthorizedUser } from '../middlewares/auth';
-import { compressImages, upload } from '../middlewares/upload';
-import { uploadChatPhotos } from '../controllers/chat';
+import { requireAuthorizedUser } from '../middlewares/auth.js';
+import { compressImages, upload } from '../middlewares/upload.js';
+import { uploadChatPhotos } from '../controllers/chat.js';
 
 const router = Router();
 
