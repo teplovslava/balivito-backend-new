@@ -125,6 +125,8 @@ export const sendMessage = async (socket, io, { chatId, adId, recipientId, text 
         text: text || '[Изображение]',
         date: new Date()
       };
+      
+      chat.markModified('lastMessage'); 
   
       if (anotherUserId) {
         chat.unreadCounts.set(anotherUserId.toString(), (chat.unreadCounts.get(anotherUserId.toString()) || 0) + 1);
