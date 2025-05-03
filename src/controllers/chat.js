@@ -125,7 +125,7 @@ export const sendMessage = async (socket, io, { chatId, adId, recipientId, text 
         text: text || '[Изображение]',
         date: new Date()
       };
-      
+
       chat.markModified('lastMessage'); 
   
       if (anotherUserId) {
@@ -164,4 +164,7 @@ export const readChat = async (socket, { chatId }) => {
     }
 };
   
-  
+export const uploadChatPhotos = async(req,res) => {
+  const photoPaths = req.files?.map(file => `${process.env.SITE_URL}/uploads/${file.filename}`) || [];
+  res.status(201).json(photoPaths);
+}

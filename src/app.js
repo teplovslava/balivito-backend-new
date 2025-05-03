@@ -11,6 +11,7 @@ import favoritesRoutes from './routes/favorites.js';
 import feedbacksRoutes from './routes/feedbacks.js'
 import categoryRoutes from './routes/category.js';
 import locationRoutes from './routes/location.js';
+import chatRoutes from './routes/chat.js';
 import { userIdMiddleware } from './middlewares/userId.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,5 +34,6 @@ app.use('/favorites', userIdMiddleware, favoritesRoutes);
 app.use('/feedbacks', userIdMiddleware, feedbacksRoutes);
 app.use('/category', categoryRoutes);
 app.use('/location', locationRoutes);
+app.use('/chat', chatRoutes);
 
 export default app;
