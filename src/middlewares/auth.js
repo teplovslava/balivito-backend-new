@@ -1,19 +1,20 @@
-import jwt from 'jsonwebtoken';
+import User from '../models/User';
 
-export const authMiddleware = (req, res, next) => {
-  const token = req.cookies.token;
-  const JWT_SECRET = process.env.JWT_SECRET;
-
-  if (!token) {
-    return res.status(401).json({ message: 'Нет access токена' });
+export const requireAuthorizedUser = async (req, res, next) => {
+  if (!req.userId) {
+    return res.status(401).json({ message: 'Пользователь не авторизован' });
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.userId = decoded.id;
+    const user = await User.findById(req.userId);
+    if (!user || user.isGuest) {
+      return res.status(403).json({ message: 'Только для зарегистрированных пользователей' });
+    }
+
     next();
-  } catch (error) {
-    console.error('Ошибка access токена:', error);
-    res.status(401).json({ message: 'Недействительный токен' });
+  } catch (err) {
+    console.error('Ошибка проверки пользователя:', err);
+    return res.status(500).json({ message: 'Ошибка сервера' });
   }
 };
+

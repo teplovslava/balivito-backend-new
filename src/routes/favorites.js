@@ -1,12 +1,10 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middlewares/auth.js';
 import { toggleFavorite, getFavorites, clearFavorites } from '../controllers/favorites.js';
-import { userIdMiddleware } from '../middlewares/userId.js';
 
 const router = Router();
 
-router.patch('/:id', authMiddleware, toggleFavorite);
-router.get('/', userIdMiddleware, getFavorites);
-router.delete('/', userIdMiddleware, clearFavorites);
+router.patch('/:id', requireAuthorizedUser, toggleFavorite);
+router.get('/', getFavorites);
+router.delete('/', clearFavorites);
 
 export default router;

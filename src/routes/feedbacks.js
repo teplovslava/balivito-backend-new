@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authMiddleware } from '../middlewares/auth.js';
+import { authMiddleware, requireAuthorizedUser } from '../middlewares/auth.js';
 import { userIdMiddleware } from '../middlewares/userId.js';
 import {
   getFeedback,
@@ -10,12 +10,12 @@ import {
 const router = Router();
 
 // Оставить отзыв
-router.post('/:id', authMiddleware, setFeedback);
+router.post('/:id', requireAuthorizedUser, setFeedback);
 
 // Получить отзывы пользователя
-router.get('/:id', userIdMiddleware, getFeedback);
+router.get('/:id', getFeedback);
 
 // Удалить отзыв
-router.delete('/:id/:feedbackId', authMiddleware, deleteFeedback);
+router.delete('/:id/:feedbackId', requireAuthorizedUser, deleteFeedback);
 
 export default router;
