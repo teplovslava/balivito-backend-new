@@ -34,6 +34,6 @@ app.use('/favorites', userIdMiddleware, favoritesRoutes);
 app.use('/feedbacks', userIdMiddleware, feedbacksRoutes);
 app.use('/category', categoryRoutes);
 app.use('/location', locationRoutes);
-app.use('/chat', chatRoutes);
+app.use('/chat',userIdMiddleware, chatRoutes);
 
 export default app;
