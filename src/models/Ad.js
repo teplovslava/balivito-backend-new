@@ -24,7 +24,7 @@ const adSchema = new Schema(
         required: true,
     },      
     photos: [{
-      id: { type: mongoose.Schema.Types.ObjectId, ref: 'UploadedFile' },
+      id: { type: Schema.Types.ObjectId, ref: 'UploadedFile' },
       url: String,
       filename: String
     }],
