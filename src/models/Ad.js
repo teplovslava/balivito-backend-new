@@ -23,12 +23,11 @@ const adSchema = new Schema(
         ref: 'Category',
         required: true,
     },      
-    photos: [
-      {
-        type: String,
-        required: false,
-      },
-    ],
+    photos: [{
+      id: { type: mongoose.Schema.Types.ObjectId, ref: 'UploadedFile' },
+      url: String,
+      filename: String
+    }],
     viewerIds: [
         {
           type: Schema.Types.ObjectId,

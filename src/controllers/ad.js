@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Ad from '../models/Ad.js';
 import User from '../models/User.js'
+import UploadedFile from '../models/UploadFile.js'
 import fs from 'fs';
 import path from 'path';
 import { jaccardSimilarity, SIMILARITY_THRESHOLD } from '../utils/checkTitle.js';
@@ -29,7 +30,11 @@ export const createAd = async (req, res) => {
       return res.status(409).json({ message: 'Похоже, такое объявление уже существует', ad: dublicate });
     }
 
-    const photoPaths = req.files?.map(file => `${process.env.SITE_URL}/uploads/${file.filename}`) || [];
+    const photoPaths = req.UploadedFile.map(file => ({
+      id: file._id,
+      url: file.url,
+      filename: file.filename
+    })) || [];
 
     const newAd = new Ad({
       title,
@@ -215,11 +220,13 @@ export const deleteAd = async (req, res) => {
     }
 
     if (ad.photos && ad.photos.length > 0) {
-      for (const photoUrl of ad.photos) {
-        const localPath = path.join('uploads', path.basename(photoUrl));
+      for (const photo of ad.photos) {
+        const localPath = path.join('uploads', photo.filename);
         if (fs.existsSync(localPath)) {
           fs.unlinkSync(localPath);
         }
+
+        await UploadedFile.deleteOne({ _id: photo.id, author: req.userId });
       }
     }
 
@@ -279,7 +286,11 @@ export const updateAd = async (req, res) => {
         if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
       });
 
-      ad.photos = req.files.map(file => `${process.env.SITE_URL}/uploads/${file.filename}`);
+      ad.photos = req.uploadedFiles.map(file => ({
+        id: file._id,
+        url: file.url,
+        filename: file.filename
+      }));
     }
 
     const updated = await ad.save();

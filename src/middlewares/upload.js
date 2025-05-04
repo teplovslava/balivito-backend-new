@@ -1,14 +1,18 @@
+// middleware/upload.js
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
+import UploadedFile from '../models/UploadFile.js';
 
 const tmpDir = 'tmp/';
 const uploadDir = 'uploads/';
 
+// Создание директорий, если их нет
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
+// Настройка multer для временной загрузки
 const storage = multer.diskStorage({
   destination: tmpDir,
   filename: (_, file, cb) => {
@@ -19,8 +23,9 @@ const storage = multer.diskStorage({
 
 export const upload = multer({ storage });
 
+// Middleware сжатия и обработки изображений
 export const compressImages = async (req, res, next) => {
-  console.log('req.files len →', req.files);
+  const userId = req.user.id; // Пользователь должен быть авторизован
   if (!req.files || !req.files.length) return next();
 
   try {
@@ -30,11 +35,11 @@ export const compressImages = async (req, res, next) => {
       const compressedPath = path.join(uploadDir, file.filename);
 
       await sharp(file.path)
-        .rotate() 
+        .rotate()
         .jpeg({ quality: 60 })
         .toFile(compressedPath);
 
-      fs.unlinkSync(file.path);
+      fs.unlinkSync(file.path); // удаляем временный файл
 
       compressedFiles.push({
         ...file,
@@ -43,7 +48,21 @@ export const compressImages = async (req, res, next) => {
       });
     }
 
-    req.files = compressedFiles;
+    // Сохраняем в базу информацию о загруженных файлах
+    const uploadedFiles = await Promise.all(
+      compressedFiles.map(async (file) => {
+        const fileUrl = `${process.env.SITE_URL}/uploads/${file.filename}`;
+        return await UploadedFile.create({
+          url: fileUrl,
+          filename: file.filename,
+          author: userId,
+        });
+      })
+    );
+
+    // прикрепляем результат загрузки к req.uploadedFiles
+    req.uploadedFiles = uploadedFiles;
+
     next();
   } catch (err) {
     console.error('Ошибка при сжатии изображений:', err);

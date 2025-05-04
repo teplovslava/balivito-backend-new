@@ -170,8 +170,57 @@ export const readChat = async (socket, { chatId }) => {
     }
 };
   
-export const uploadChatPhotos = async(req,res) => {
-  const photoPaths = req.files?.map(file => `${process.env.SITE_URL}/uploads/${file.filename}`) || [];
-  console.log(photoPaths)
-  res.status(201).json(photoPaths);
-}
+export const uploadChatPhotos = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!req.uploadedFiles || req.uploadedFiles.length === 0) {
+      return res.status(400).json({ message: 'Файлы не были загружены' });
+    }
+
+    // Готовим ответ с данными файлов, принадлежащими пользователю
+    const photoData = req.uploadedFiles.map(file => ({
+      id: file._id,
+      url: file.url,
+      filename: file.filename,
+      author: userId
+    }));
+
+    res.status(201).json(photoData);
+  } catch (error) {
+    console.error('Ошибка при загрузке фото:', error);
+    res.status(500).json({ message: 'Ошибка при загрузке изображений' });
+  }
+};
+
+
+
+// Отдельный метод для удаления файла
+export const deleteUploadedPhoto = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const file = await UploadedFile.findById(id);
+
+    if (!file) {
+      return res.status(404).json({ message: 'Файл не найден' });
+    }
+
+    // Проверка авторства файла
+    if (file.author.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Нет доступа' });
+    }
+
+    const filepath = path.join('uploads', file.filename);
+
+    if (fs.existsSync(filepath)) {
+      fs.unlinkSync(filepath);
+    }
+
+    await file.deleteOne();
+
+    res.json({ message: 'Файл удалён' });
+  } catch (err) {
+    console.error('Ошибка при удалении фото:', err);
+    res.status(500).json({ message: 'Ошибка сервера' });
+  }
+};
