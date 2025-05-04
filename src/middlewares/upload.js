@@ -25,7 +25,7 @@ export const upload = multer({ storage });
 
 // Middleware сжатия и обработки изображений
 export const compressImages = async (req, res, next) => {
-  const userId = req.user.id; // Пользователь должен быть авторизован
+  const userId = req.userId;// Пользователь должен быть авторизован
   if (!req.files || !req.files.length) return next();
 
   try {
