@@ -218,6 +218,8 @@ export const deleteUploadedPhoto = async (req, res) => {
 
     await file.deleteOne();
 
+    console.log('deleted')
+
     res.json({ message: 'Файл удалён' });
   } catch (err) {
     console.error('Ошибка при удалении фото:', err);
