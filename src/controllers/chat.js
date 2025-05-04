@@ -172,7 +172,7 @@ export const readChat = async (socket, { chatId }) => {
   
 export const uploadChatPhotos = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.userId;
 
     if (!req.uploadedFiles || req.uploadedFiles.length === 0) {
       return res.status(400).json({ message: 'Файлы не были загружены' });
