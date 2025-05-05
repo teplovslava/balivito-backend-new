@@ -1,5 +1,6 @@
 import Chat from '../models/Chat.js';
 import Message from '../models/Message.js';
+import UploadedFile from '../models/UploadFile.js';
 
 export const getUserChats = async (socket, data, callback) => {
   const userId = socket.userId;
