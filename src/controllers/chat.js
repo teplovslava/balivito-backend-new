@@ -198,24 +198,31 @@ export const uploadChatPhotos = async (req, res) => {
 // Отдельный метод для удаления файла
 export const deleteUploadedPhoto = async (req, res) => {
   try {
+    console.log('1')
     const { id } = req.params;
     const file = await UploadedFile.findById(id);
 
+    console.log('2')
     if (!file) {
       return res.status(404).json({ message: 'Файл не найден' });
     }
 
+    console.log('3')
     // Проверка авторства файла
     if (file.author.toString() !== req.userId) {
       return res.status(403).json({ message: 'Нет доступа' });
     }
 
+    console.log('4')
     const filepath = path.join('uploads', file.filename);
+
+    console.log('5')
 
     if (fs.existsSync(filepath)) {
       fs.unlinkSync(filepath);
     }
 
+    console.log('6')
     await file.deleteOne();
 
     console.log('deleted')
