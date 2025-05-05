@@ -25,7 +25,7 @@ const adSchema = new Schema(
     },      
     photos: [{
       id: { type: Schema.Types.ObjectId, ref: 'UploadedFile' },
-      url: String,
+      uri: String,
       filename: String
     }],
     viewerIds: [

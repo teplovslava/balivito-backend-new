@@ -32,7 +32,7 @@ export const createAd = async (req, res) => {
 
     const photoPaths = req.uploadedFiles.map(file => ({
       id: file._id,
-      url: file.url,
+      uri: file.uri,
       filename: file.filename
     })) || [];
 
@@ -288,7 +288,7 @@ export const updateAd = async (req, res) => {
 
       ad.photos = req.uploadedFiles.map(file => ({
         id: file._id,
-        url: file.url,
+        uri: file.uri,
         filename: file.filename
       }));
     }

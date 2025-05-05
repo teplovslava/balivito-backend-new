@@ -181,7 +181,7 @@ export const uploadChatPhotos = async (req, res) => {
     // Готовим ответ с данными файлов, принадлежащими пользователю
     const photoData = req.uploadedFiles.map(file => ({
       id: file._id,
-      url: file.url,
+      uri: file.uri,
       filename: file.filename,
       author: userId
     }));

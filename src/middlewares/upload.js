@@ -53,7 +53,7 @@ export const compressImages = async (req, res, next) => {
       compressedFiles.map(async (file) => {
         const fileUrl = `${process.env.SITE_URL}/uploads/${file.filename}`;
         return await UploadedFile.create({
-          url: fileUrl,
+          uri: fileUrl,
           filename: file.filename,
           author: userId,
         });
