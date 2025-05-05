@@ -281,8 +281,8 @@ export const updateAd = async (req, res) => {
 
     // Обработка фотографий
     if (req.files && req.files.length > 0) {
-      ad.photos.forEach(filename => {
-        const filepath = path.join('uploads', filename);
+      ad.photos.forEach((photo) => {
+        const filepath = path.join('uploads', photo.filename);
         if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
       });
 
