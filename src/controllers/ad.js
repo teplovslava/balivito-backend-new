@@ -250,19 +250,19 @@ export const updateAd = async (req, res) => {
     }
 
     const ad = await Ad.findById(id);
-    if (!ad) return res.status(404).json({ message: 'Объявление не найдено' });
+    if (!ad) {
+      return res.status(404).json({ message: 'Объявление не найдено' });
+    }
 
     if (ad.author.toString() !== req.userId) {
       return res.status(403).json({ message: 'Нет прав на редактирование' });
     }
 
-    // Проверка цены
     if (price && usd == null && idr == null && rub == null) {
       return res.status(400).json({ message: 'Укажите хотя бы одну цену' });
     }
 
-    // Обновление полей
-    ['title', 'description', 'category', 'location'].forEach(field => {
+    ['title','description','category','location'].forEach(field => {
       if (req.body[field] !== undefined) ad[field] = req.body[field];
     });
 
@@ -273,33 +273,20 @@ export const updateAd = async (req, res) => {
       if (rub !== undefined) ad.price.rub = rub;
     }
 
-    // Обработка фотографий
-    const newPhotos = (req.uploadedFiles || []).map(file => ({
-      id: file._id,
-      uri: file.uri,
-      filename: file.filename,
-    }));
-    
-    // Старые фото из ad.photos
-    const finalPhotos = [];
-    
-    for (const file of req.body.photos || []) {
-      const name = typeof file === 'string' ? file.split('uploads/')[1] : null;
-    
-      // Если это новое фото, ищем его по имени из uploadedFiles
-      const matchNew = newPhotos.find(p => p.filename === name);
-      if (matchNew) {
-        finalPhotos.push(matchNew);
-      } else {
-        // Это старое фото — найдём в существующих ad.photos
-        const matchOld = ad.photos.find(p => p.filename === name);
-        if (matchOld) {
-          finalPhotos.push(matchOld);
-        }
-      }
+    // Обработка фотографий через req.uploadedFiles
+    if (Array.isArray(req.uploadedFiles) && req.uploadedFiles.length > 0) {
+      // удаляем старые
+      ad.photos.forEach(photo => {
+        const fp = path.join('uploads', photo.filename);
+        if (fs.existsSync(fp)) fs.unlinkSync(fp);
+      });
+      // ставим новые
+      ad.photos = req.uploadedFiles.map(file => ({
+        id: file._id,
+        uri: file.uri,
+        filename: file.filename,
+      }));
     }
-    
-    ad.photos = finalPhotos;
 
     const updated = await ad.save();
     res.json(updated);
