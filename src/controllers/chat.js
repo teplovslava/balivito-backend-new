@@ -2,10 +2,10 @@
 // controllers/chatController.js
 //------------------------------------------------------------
 import path from 'path';
-import fs from 'fs';
+import fs   from 'fs';
 
-import Chat from '../models/Chat.js';
-import Message from '../models/Message.js';
+import Chat         from '../models/Chat.js';
+import Message      from '../models/Message.js';
 import UploadedFile from '../models/UploadFile.js';
 
 // Вынесенная функция для обогащения чата в единый формат
@@ -175,14 +175,17 @@ export const sendMessage = async (
         .populate({ path: 'ad', select: 'title photos' })
         .populate({ path: 'participants', select: 'name email' });
 
-      const chatDTO = enrichChat(fullChat, senderId);
-
-      // подсаживаем все сокеты получателя в комнату чата
-      io.in(`user:${recipientId}`).socketsJoin(
-        chat._id.toString()
-      );
-      // одно событие на всю комнату
-      io.to(chat._id.toString()).emit('new_chat', chatDTO);
+        const senderChatDto    = enrichChat(fullChat, senderId);
+        const companionChatDto = enrichChat(fullChat, recipientId);
+        
+        // 2) Подсаживаем все соединения получателя (и при желании отправителя) в комнату чата
+        //    Чтобы внутри чата потом точно слушать `new_message` и т.п.
+        io.in(`user:${recipientId}`).socketsJoin(chat._id.toString());
+        io.in(`user:${senderId}`   ).socketsJoin(chat._id.toString());
+        
+        // 3) Шлём каждому своё событие в его «личную» комнату
+        io.to(`user:${senderId}`).emit   ('new_chat', senderChatDto);
+        io.to(`user:${recipientId}`).emit('new_chat', companionChatDto);
     }
 
     callback({ success: true, newMessage, chatId: chat._id, isNewChat });
