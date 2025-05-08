@@ -274,28 +274,32 @@ export const updateAd = async (req, res) => {
     }
 
     // Обработка фотографий
-    const existingFilenames = Array.isArray(req.body.existingPhotoFilenames)
-      ? req.body.existingPhotoFilenames
-      : [req.body.existingPhotoFilenames].filter(Boolean);
-
-    // Удаляем фото, которых нет в списке
-    for (const photo of ad.photos) {
-      if (!existingFilenames.includes(photo.filename)) {
-        const localPath = path.join('uploads', photo.filename);
-        if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
-        await UploadedFile.deleteOne({ _id: photo.id, author: req.userId });
-      }
-    }
-
-    // Обновляем фото
     const newPhotos = (req.uploadedFiles || []).map(file => ({
       id: file._id,
       uri: file.uri,
       filename: file.filename,
     }));
-
-    const keptPhotos = ad.photos.filter(p => existingFilenames.includes(p.filename));
-    ad.photos = [...keptPhotos, ...newPhotos];
+    
+    // Старые фото из ad.photos
+    const finalPhotos = [];
+    
+    for (const file of req.body.photos || []) {
+      const name = typeof file === 'string' ? file.split('uploads/')[1] : null;
+    
+      // Если это новое фото, ищем его по имени из uploadedFiles
+      const matchNew = newPhotos.find(p => p.filename === name);
+      if (matchNew) {
+        finalPhotos.push(matchNew);
+      } else {
+        // Это старое фото — найдём в существующих ad.photos
+        const matchOld = ad.photos.find(p => p.filename === name);
+        if (matchOld) {
+          finalPhotos.push(matchOld);
+        }
+      }
+    }
+    
+    ad.photos = finalPhotos;
 
     const updated = await ad.save();
     res.json(updated);
