@@ -279,6 +279,8 @@ export const updateAd = async (req, res) => {
       if (rub !== undefined) ad.price.rub = rub;
     }
 
+    console.log(req.files)
+
     // Обработка фотографий
     if (req.files && req.files.length > 0) {
       ad.photos.forEach((photo) => {
