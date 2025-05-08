@@ -46,7 +46,12 @@ export const getUserChats = async (socket, _data, callback) => {
       .sort({ updatedAt: -1 });
 
     const enriched = chats.map(chat => enrichChat(chat, userId));
-    callback({ success: true, chats: enriched });
+
+    const totalUnread = enriched.reduce(
+      (sum, { lastMessage }) => sum + (lastMessage.unreadCount || 0),
+      0
+    );
+    callback({ success: true, chats: enriched, totalUnread });
   } catch (err) {
     console.error(err);
     callback({ success: false, error: 'Ошибка при получении чатов' });
