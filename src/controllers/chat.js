@@ -114,6 +114,8 @@ export const sendMessage = async (
       isNewChat = true;
     }
 
+    console.log(isNewChat)
+
     /* 3. создаём сообщение */
     const message = await Message.create({
       chatId : chat._id,
@@ -164,10 +166,8 @@ export const sendMessage = async (
         lastMessage : chat.lastMessage,
         unreadCounts: Object.fromEntries(chat.unreadCounts),
       };
-
-      // считается, что каждый пользователь сидит в комнате со своим userId
-      io.to(senderId).emit   ('new_chat', chatDTO);
-      io.to(recipientId).emit('new_chat', chatDTO);
+      
+      io.to(chat._id.toString()).emit('new_chat', chatDTO);
     }
 
     callback({ success: true, newMessage, chatId: chat._id, isNewChat });
