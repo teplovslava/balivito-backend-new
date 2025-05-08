@@ -39,7 +39,7 @@ export const compressImages = async (req, res, next) => {
 
       await sharp(file.path)
         .rotate()
-        .webp()
+        .jpeg()
         .toFile(compressedPath);
 
       fs.unlinkSync(file.path); // удаляем временный файл
