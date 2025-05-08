@@ -1,48 +1,51 @@
 //------------------------------------------------------------
-// controllers/chatController.js (пример названия файла)
+// controllers/chatController.js
 //------------------------------------------------------------
 import path from 'path';
-import fs   from 'fs';
+import fs from 'fs';
 
-import Chat         from '../models/Chat.js';
-import Message      from '../models/Message.js';
+import Chat from '../models/Chat.js';
+import Message from '../models/Message.js';
 import UploadedFile from '../models/UploadFile.js';
 
+// Вынесенная функция для обогащения чата в единый формат
+const enrichChat = (chat, userId) => {
+  const companion = chat.participants.find(
+    p => p._id.toString() !== userId
+  );
+  const unreadCount = chat.unreadCounts?.get(userId.toString()) || 0;
+
+  return {
+    _id: chat._id,
+    updatedAt: chat.updatedAt,
+    lastMessage: {
+      text: chat.lastMessage?.text || '',
+      date: chat.lastMessage?.date || null,
+      unreadCount,
+    },
+    ad: chat.ad
+      ? {
+          _id: chat.ad._id,
+          title: chat.ad.title,
+          photo: chat.ad.photos?.[0] || null,
+        }
+      : null,
+    companion,
+  };
+};
+
 /* ------------------------------------------------------------------ */
-/* 1. список чатов пользователя                                        */
+/* 1. Получение списка чатов пользователя                             */
 /* ------------------------------------------------------------------ */
 export const getUserChats = async (socket, _data, callback) => {
   const userId = socket.userId;
-
   try {
     const chats = await Chat.find({ participants: userId })
-      .populate({ path: 'ad',          select: 'title photos' })
+      .populate({ path: 'ad', select: 'title photos' })
       .populate({ path: 'participants', select: 'name email' })
       .sort({ updatedAt: -1 });
 
-    const enriched = chats.map(chat => {
-      const companion   = chat.participants.find(p => p._id.toString() !== userId);
-      const unreadCount = chat.unreadCounts?.get(userId.toString()) || 0;
-
-      return {
-        _id: chat._id,
-        updatedAt: chat.updatedAt,
-        lastMessage: {
-          text : chat.lastMessage?.text  || '',
-          date : chat.lastMessage?.date  || null,
-          unreadCount,                       // только для текущего юзера
-        },
-        ad: chat.ad
-          ? {
-              _id   : chat.ad._id,
-              title : chat.ad.title,
-              photo : chat.ad.photos?.[0] || null,
-            }
-          : null,
-        companion,
-      };
-    });
-
+    const enriched = chats.map(chat => enrichChat(chat, userId));
     callback({ success: true, chats: enriched });
   } catch (err) {
     console.error(err);
@@ -51,30 +54,34 @@ export const getUserChats = async (socket, _data, callback) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* 2. при соединении пользователя                                      */
+/* 2. Автоподписка пользователя на его комнаты                        */
 /* ------------------------------------------------------------------ */
 export const connectUser = async socket => {
   try {
-    /* 🔹 личная комната пользователя */
-    socket.join(`user:${socket.userId}`);
+    socket.join(`user:${socket.userId}`); // личная комната
 
-    /* 🔹 подписываемся на все его чаты */
-    const userChats = await Chat.find({ participants: socket.userId }, '_id');
+    const userChats = await Chat.find(
+      { participants: socket.userId },
+      '_id'
+    );
+    userChats.forEach(chat => socket.join(chat._id.toString()));
 
-    userChats.forEach(chat => {
-      socket.join(chat._id.toString());
-    });
-
-    console.log(`✅ user:${socket.userId} → личная + ${userChats.length} чатов`);
+    console.log(
+      `✅ user:${socket.userId} → личная + ${userChats.length} чатов`
+    );
   } catch (err) {
     console.error('Ошибка при авто‑присоединении к чатам:', err);
   }
 };
 
 /* ------------------------------------------------------------------ */
-/* 3. получить сообщения                                               */
+/* 3. Получение сообщений по chatId                                  */
 /* ------------------------------------------------------------------ */
-export const getMessages = async (socket, { chatId, page = 1, limit = 20 }, cb) => {
+export const getMessages = async (
+  socket,
+  { chatId, page = 1, limit = 20 },
+  cb
+) => {
   try {
     const messages = await Message.find({ chatId })
       .sort({ createdAt: -1 })
@@ -83,13 +90,12 @@ export const getMessages = async (socket, { chatId, page = 1, limit = 20 }, cb) 
       .lean();
 
     const total = await Message.countDocuments({ chatId });
-
     cb({
-      success : true,
+      success: true,
       messages,
       totalMessages: total,
       page,
-      totalPages  : Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limit),
     });
   } catch (err) {
     console.error(err);
@@ -98,7 +104,7 @@ export const getMessages = async (socket, { chatId, page = 1, limit = 20 }, cb) 
 };
 
 /* ------------------------------------------------------------------ */
-/* 4. отправить сообщение                                              */
+/* 4. Отправка сообщения и обработка нового чата                      */
 /* ------------------------------------------------------------------ */
 export const sendMessage = async (
   socket,
@@ -109,7 +115,7 @@ export const sendMessage = async (
   try {
     const senderId = socket.userId;
 
-    /* 1 — ищем / создаём чат */
+    // 1. Ищем или создаём чат
     let chat = chatId
       ? await Chat.findById(chatId)
       : await Chat.findOne({
@@ -127,19 +133,20 @@ export const sendMessage = async (
       isNewChat = true;
     }
 
-    /* 2 — создаём сообщение */
+    // 2. Создаём сообщение
     const message = await Message.create({
-      chatId : chat._id,
-      sender : senderId,
+      chatId: chat._id,
+      sender: senderId,
       text,
       mediaUrl,
       mediaType,
     });
 
-    /* 3 — обновляем мета‑инфо чата */
-    const anotherUserId = chat.participants.find(id => id.toString() !== senderId);
+    // 3. Обновляем метаданные чата
+    const anotherUserId = chat.participants.find(
+      id => id.toString() !== senderId
+    );
     chat.lastMessage = { text: text || '[Изображения]', date: new Date() };
-
     if (anotherUserId) {
       chat.unreadCounts.set(
         anotherUserId.toString(),
@@ -148,34 +155,33 @@ export const sendMessage = async (
     }
     await chat.save();
 
-    /* 4 — sender всегда в комнате чата */
+    // 4. Оповещение о новом сообщении
     socket.join(chat._id.toString());
-
     const newMessage = {
-      _id      : message._id,
-      chatId   : chat._id,
-      sender   : message.sender,
-      text     : message.text,
-      mediaUrl : message.mediaUrl,
+      _id: message._id,
+      chatId: chat._id,
+      sender: message.sender,
+      text: message.text,
+      mediaUrl: message.mediaUrl,
       mediaType: message.mediaType,
       createdAt: message.createdAt,
     };
     io.to(chat._id.toString()).emit('new_message', newMessage);
 
-    /* 5 — если чат новый, уведомляем обоих одним событием */
+    // 5. Если чат новый — обогащаем и рассылаем одним событием
     if (isNewChat) {
-      const chatDTO = {
-        _id  : chat._id,
-        adId : chat.ad,
-        participants: chat.participants,
-        lastMessage : chat.lastMessage,
-        unreadCounts: Object.fromEntries(chat.unreadCounts),
-      };
+      // повторно получаем chat с populate
+      const fullChat = await Chat.findById(chat._id)
+        .populate({ path: 'ad', select: 'title photos' })
+        .populate({ path: 'participants', select: 'name email' });
 
-      /* 🔹 5.1 — добавляем ВСЕ соединения получателя в комнату чата */
-      io.in(`user:${recipientId}`).socketsJoin(chat._id.toString());
+      const chatDTO = enrichChat(fullChat, senderId);
 
-      /* 🔹 5.2 — одно событие на всю комнату */
+      // подсаживаем все сокеты получателя в комнату чата
+      io.in(`user:${recipientId}`).socketsJoin(
+        chat._id.toString()
+      );
+      // одно событие на всю комнату
       io.to(chat._id.toString()).emit('new_chat', chatDTO);
     }
 
@@ -187,7 +193,7 @@ export const sendMessage = async (
 };
 
 /* ------------------------------------------------------------------ */
-/* 5. отметить чат прочитанным                                         */
+/* 6. Отметить чат прочитанным                                         */
 /* ------------------------------------------------------------------ */
 export const readChat = async (socket, { chatId }) => {
   const chat = await Chat.findById(chatId);
@@ -198,23 +204,22 @@ export const readChat = async (socket, { chatId }) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* 6. загрузка файлов                                                  */
+/* 7. Загрузка фото                                                   */
 /* ------------------------------------------------------------------ */
 export const uploadChatPhotos = async (req, res) => {
   try {
     const userId = req.userId;
-
     if (!req.uploadedFiles || !req.uploadedFiles.length) {
-      return res.status(400).json({ message: 'Файлы не были загружены' });
+      return res
+        .status(400)
+        .json({ message: 'Файлы не были загружены' });
     }
-
     const photoData = req.uploadedFiles.map(f => ({
-      id      : f._id,
-      uri     : f.uri,
+      id: f._id,
+      uri: f.uri,
       filename: f.filename,
-      author  : userId,
+      author: userId,
     }));
-
     res.status(201).json(photoData);
   } catch (err) {
     console.error('Ошибка при загрузке фото:', err);
@@ -223,23 +228,18 @@ export const uploadChatPhotos = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* 7. удаление файла                                                   */
+/* 8. Удаление файла                                                  */
 /* ------------------------------------------------------------------ */
 export const deleteUploadedPhoto = async (req, res) => {
   try {
     const { id } = req.params;
-    const file   = await UploadedFile.findById(id);
-
-    if (!file) {
-      return res.status(404).json({ message: 'Файл не найден' });
-    }
-    if (file.author.toString() !== req.userId) {
+    const file = await UploadedFile.findById(id);
+    if (!file) return res.status(404).json({ message: 'Файл не найден' });
+    if (file.author.toString() !== req.userId)
       return res.status(403).json({ message: 'Нет доступа' });
-    }
 
     const filepath = path.join('uploads', file.filename);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-
     await file.deleteOne();
     res.json({ message: 'Файл удалён' });
   } catch (err) {
