@@ -39,7 +39,7 @@ export const compressImages = async (req, res, next) => {
 
       await sharp(file.path)
         .rotate()
-        .webp({ quality: 60 }) // JPEG для теста
+        .webp()
         .toFile(compressedPath);
 
       fs.unlinkSync(file.path); // удаляем временный файл
