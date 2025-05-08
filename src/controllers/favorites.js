@@ -9,7 +9,7 @@ export const toggleFavorite = async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
 
     const ad = await Ad.findById(id)
-      .select('title photos price location createdAt author') // оставляем нужные
+      .select('title photos price location createdAt author favoriteUserIds favoriteCount') // оставляем нужные
       .populate('location', 'name');
     if (!ad) return res.status(404).json({ message: 'Объявление не найдено' });
 
