@@ -95,72 +95,85 @@ export const sendMessage = async (
   try {
     const senderId = socket.userId;
 
-    let chat;
-    if (chatId) {
-      chat = await Chat.findById(chatId);
-    } else {
-      chat = await Chat.findOne({
-        ad: adId,
-        participants: { $all: [senderId, recipientId], $size: 2 },
-      });
-    }
+    /* 1. ищем существующий чат */
+    let chat = chatId
+      ? await Chat.findById(chatId)
+      : await Chat.findOne({
+          ad: adId,
+          participants: { $all: [senderId, recipientId], $size: 2 },
+        });
 
+    /* 2. при необходимости создаём новый */
+    let isNewChat = false;
     if (!chat) {
       chat = await Chat.create({
         ad: adId,
         participants: [senderId, recipientId],
-        unreadCounts: {
-          [senderId]: 0,
-          [recipientId]: 0,
-        },
+        unreadCounts: { [senderId]: 0, [recipientId]: 0 },
       });
+      isNewChat = true;
     }
 
+    /* 3. создаём сообщение */
     const message = await Message.create({
-      chatId: chat._id,
-      sender: senderId,
+      chatId : chat._id,
+      sender : senderId,
       text,
-      mediaUrl,     // ✅ массив ссылок
-      mediaType,     // например: 'image'
+      mediaUrl,
+      mediaType,
     });
 
+    /* 4. обновляем мета‑поля чата */
     const anotherUserId = chat.participants.find(
-      (id) => id.toString() !== senderId
+      id => id.toString() !== senderId
     );
 
     chat.lastMessage = {
       text: text || '[Изображения]',
       date: new Date(),
     };
-
-    chat.markModified('lastMessage');
-
     if (anotherUserId) {
       chat.unreadCounts.set(
         anotherUserId.toString(),
         (chat.unreadCounts.get(anotherUserId.toString()) || 0) + 1
       );
     }
-
     await chat.save();
 
+    /* 5. джоиним комнату и пушим сообщение */
     socket.join(chat._id.toString());
 
     const newMessage = {
-      _id: message._id,
-      chatId: chat._id,
-      sender: message.sender,
-      text: message.text,
-      mediaUrl: message.mediaUrl, // ✅
+      _id      : message._id,
+      chatId   : chat._id,
+      sender   : message.sender,
+      text     : message.text,
+      mediaUrl : message.mediaUrl,
       mediaType: message.mediaType,
       createdAt: message.createdAt,
     };
-
     io.to(chat._id.toString()).emit('new_message', newMessage);
 
-    callback({ success: true, newMessage });
+    /* 6. если это НОВЫЙ чат — сообщаем участникам */
+    if (isNewChat) {
+      // минимальный DTO, чтобы фронт смог сразу показать карточку чата
+      const chatDTO = {
+        _id  : chat._id,
+        adId : chat.ad,
+        participants: chat.participants,
+        lastMessage : chat.lastMessage,
+        unreadCounts: Object.fromEntries(chat.unreadCounts),
+      };
+
+      // считается, что каждый пользователь сидит в комнате со своим userId
+      io.to(senderId).emit   ('new_chat', chatDTO);
+      io.to(recipientId).emit('new_chat', chatDTO);
+    }
+
+    callback({ success: true, newMessage, chatId: chat._id, isNewChat });
   } catch (err) {
     console.error('Ошибка при отправке сообщения:', err);
+    callback({ success: false, error: 'Internal server error' });
   }
 };
 
