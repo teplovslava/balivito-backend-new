@@ -24,7 +24,6 @@ export const runSeed = async () => {
     }
 
     const savedUsers = await User.insertMany(users);
-    console.log(`👤 Добавлено ${savedUsers.length} пользователей`);
 
     const ads = [];
     for (let i = 0; i < NUM_ADS; i++) {

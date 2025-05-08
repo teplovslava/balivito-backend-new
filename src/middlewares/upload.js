@@ -25,31 +25,17 @@ export const upload = multer({ storage });
 
 // Middleware сжатия и обработки изображений
 export const compressImages = async (req, res, next) => {
-  console.log('🟠 compressImages вызван');
-
   const userId = req.userId;
-  console.log('👤 userId:', userId);
 
   if (!req.files || !req.files.length) {
-    console.log('⚠️ req.files пустой или не определён');
     return next();
   }
-
-  console.log(`📸 Найдено файлов: ${req.files.length}`);
-  console.log('📂 req.files:', req.files.map(f => ({
-    originalname: f.originalname,
-    mimetype: f.mimetype,
-    path: f.path,
-    filename: f.filename,
-    size: f.size
-  })));
 
   try {
     const compressedFiles = [];
 
     for (const file of req.files) {
       const compressedPath = path.join(uploadDir, file.filename);
-      console.log(`🔧 Обрабатываем файл: ${file.path} → ${compressedPath}`);
 
       await sharp(file.path)
         .rotate()
@@ -57,7 +43,6 @@ export const compressImages = async (req, res, next) => {
         .toFile(compressedPath);
 
       fs.unlinkSync(file.path); // удаляем временный файл
-      console.log(`🗑 Удалён временный файл: ${file.path}`);
 
       compressedFiles.push({
         ...file,
@@ -69,7 +54,6 @@ export const compressImages = async (req, res, next) => {
     const uploadedFiles = await Promise.all(
       compressedFiles.map(async (file) => {
         const fileUrl = `${process.env.SITE_URL}/uploads/${file.filename}`;
-        console.log(`✅ Сохраняем файл в базу: ${file.filename}`);
 
         return await UploadedFile.create({
           uri: fileUrl,
@@ -79,7 +63,6 @@ export const compressImages = async (req, res, next) => {
       })
     );
 
-    console.log('📥 Загруженные файлы в базу:', uploadedFiles);
 
     req.uploadedFiles = uploadedFiles;
     next();

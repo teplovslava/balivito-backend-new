@@ -378,8 +378,6 @@ export const getRecommendedAds = async (req, res) => {
       isFavorite: favoriteSet.has(ad._id.toString()),
     }));
 
-    console.log({ items, pagination })
-
     res.json({ items, pagination });
 
   } catch (err) {
