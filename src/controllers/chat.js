@@ -63,28 +63,40 @@ export const connectUser = async (socket) => {
     }
 }
 
-export const getMessages = async (socket, { chatId, page = 1, limit = 20 }, callback) => {
-    try {
-      const messages = await Message.find({ chatId })
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean();
-  
-      const totalMessages = await Message.countDocuments({ chatId });
-  
-      callback({
-        success: true,
-        messages,
-        totalMessages,
-        page,
-        totalPages: Math.ceil(totalMessages / limit),
-      });
-    } catch (err) {
-      console.error(err);
-      callback({ success: false, error: 'Ошибка при получении сообщений' });
-    }
+export const getMessages = async (
+  socket,
+  { chatId, adId, page = 1, limit = 20 },
+  callback
+) => {
+  try {
+    /* 1. формируем фильтр */
+    const filter = chatId
+      ? { chatId }            // приоритет chatId
+      : { adId };             // иначе ищем все сообщения объявления
+
+    /* 2. получаем сообщения */
+    const messages = await Message.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
+
+    /* 3. считаем общее число */
+    const totalMessages = await Message.countDocuments(filter);
+
+    callback({
+      success: true,
+      messages,
+      totalMessages,
+      page,
+      totalPages: Math.ceil(totalMessages / limit),
+    });
+  } catch (err) {
+    console.error(err);
+    callback({ success: false, error: 'Ошибка при получении сообщений' });
+  }
 };
+
 
 export const sendMessage = async (
   socket,
