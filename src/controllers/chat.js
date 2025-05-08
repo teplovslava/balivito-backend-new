@@ -171,31 +171,28 @@ export const sendMessage = async (
       mediaType: message.mediaType,
       createdAt: message.createdAt,
     };
-    
+    io.to(chat._id.toString()).emit('new_message', newMessage);
+
+    // 5. Если чат новый — обогащаем и рассылаем одним событием
     if (isNewChat) {
+      // повторно получаем chat с populate
       const fullChat = await Chat.findById(chat._id)
         .populate({ path: 'ad', select: 'title photos' })
         .populate({ path: 'participants', select: 'name email' });
-    
-      const senderChatDto = enrichChat(fullChat, senderId);
-      const recipientChatDto = enrichChat(fullChat, recipientId);
-    
-      io.in(`user:${recipientId}`).socketsJoin(chat._id.toString());
-      io.in(`user:${senderId}`).socketsJoin(chat._id.toString());
-    
-      io.to(`user:${senderId}`).emit('new_chat', {
-        chat: senderChatDto,
-        message: newMessage, // ⬅️ можно сразу передать первое сообщение
-      });
-    
-      io.to(`user:${recipientId}`).emit('new_chat', {
-        chat: recipientChatDto,
-        message: newMessage,
-      });
-    } else {
-      // 6. Если чат старый — рассылаем обычное сообщение
-      io.to(chat._id.toString()).emit('new_message', newMessage);
+
+        const senderChatDto    = enrichChat(fullChat, senderId);
+        const companionChatDto = enrichChat(fullChat, recipientId);
+        
+        // 2) Подсаживаем все соединения получателя (и при желании отправителя) в комнату чата
+        //    Чтобы внутри чата потом точно слушать `new_message` и т.п.
+        io.in(`user:${recipientId}`).socketsJoin(chat._id.toString());
+        io.in(`user:${senderId}`   ).socketsJoin(chat._id.toString());
+        
+        // 3) Шлём каждому своё событие в его «личную» комнату
+        io.to(`user:${senderId}`).emit   ('new_chat', senderChatDto);
+        io.to(`user:${recipientId}`).emit('new_chat', companionChatDto);
     }
+
     callback({ success: true, newMessage, chatId: chat._id, isNewChat });
   } catch (err) {
     console.error('Ошибка при отправке сообщения:', err);
