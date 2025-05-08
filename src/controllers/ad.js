@@ -275,12 +275,7 @@ export const updateAd = async (req, res) => {
 
     // Обработка фотографий через req.uploadedFiles
     if (Array.isArray(req.uploadedFiles) && req.uploadedFiles.length > 0) {
-      // удаляем старые
-      ad.photos.forEach(photo => {
-        const fp = path.join('uploads', photo.filename);
-        if (fs.existsSync(fp)) fs.unlinkSync(fp);
-      });
-      // ставим новые
+      // ✅ НЕ удаляем старые — потому что они уже повторно прикреплены и обработаны
       ad.photos = req.uploadedFiles.map(file => ({
         id: file._id,
         uri: file.uri,
