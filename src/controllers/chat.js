@@ -165,6 +165,7 @@ export const sendMessage = async (
       mediaUrl: message.mediaUrl,
       mediaType: message.mediaType,
       createdAt: message.createdAt,
+      isRead: message.isRead,
     };
     io.to(chat._id.toString()).emit("new_message", newMessage);
 
@@ -198,11 +199,36 @@ export const sendMessage = async (
 /* ------------------------------------------------------------------ */
 /* 6. Отметить чат прочитанным                                         */
 /* ------------------------------------------------------------------ */
-export const readChat = async (socket, { chatId }) => {
-  const chat = await Chat.findById(chatId);
-  if (chat) {
-    chat.unreadCounts.set(socket.userId, 0);
+export const readChat = async (socket, io, { chatId }) => {
+  try {
+    const userId = socket.userId;
+    const chat = await Chat.findById(chatId);
+    if (!chat) return;
+
+    // Сброс непрочитанных
+    chat.unreadCounts.set(userId, 0);
     await chat.save();
+
+    // Подключаем сокет к комнате, если это первое открытие
+    socket.join(chat._id.toString());
+
+    // Получаем последнее сообщение от собеседника
+    const lastMsg = await Message.findOne({
+      chatId,
+      sender: { $ne: userId },
+    }).sort({ createdAt: -1 });
+
+    if (lastMsg) {
+      const senderId = lastMsg.sender.toString();
+
+      // Оповещаем отправителя
+      io.to(`user:${senderId}`).emit("message_read", {
+        chatId,
+        messageId: lastMsg._id,
+      });
+    }
+  } catch (err) {
+    console.error("Ошибка в readChat:", err);
   }
 };
 

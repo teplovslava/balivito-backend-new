@@ -24,6 +24,7 @@ const messageSchema = new Schema(
       type: String, // например, 'image', 'video' (пока можно ограничиться 'image')
       default: "",
     },
+    isRead: { type: Boolean, default: false },
   },
   {
     timestamps: true,

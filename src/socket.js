@@ -16,7 +16,7 @@ export const socket = async (ioSocket, io) => {
   ioSocket.on("send_message", (data, cb) =>
     sendMessage(ioSocket, io, data, cb)
   );
-  ioSocket.on("read_chat", (data) => readChat(ioSocket, data));
+  ioSocket.on("read_chat", (data) => readChat(ioSocket, io, data));
 
   ioSocket.on("disconnect", () => {
     console.log("Пользователь отключился:", ioSocket.id);
