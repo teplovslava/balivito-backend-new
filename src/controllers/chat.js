@@ -205,28 +205,27 @@ export const readChat = async (socket, io, { chatId }) => {
     const chat = await Chat.findById(chatId);
     if (!chat) return;
 
-    // Сброс непрочитанных
+    // Сброс счётчика непрочитанных сообщений
     chat.unreadCounts.set(userId, 0);
     await chat.save();
 
-    // Подключаем сокет к комнате, если это первое открытие
+    // Присоединение сокета к комнате (на случай первого захода)
     socket.join(chat._id.toString());
 
-    // Получаем последнее сообщение от собеседника
+    // Ищем последнее сообщение, которое отправил текущий пользователь
     const lastMsg = await Message.findOne({
       chatId,
       sender: userId,
+      isRead: { $ne: true }, // только если ещё не было прочитано
     }).sort({ createdAt: -1 });
 
     if (lastMsg) {
-      const senderId = lastMsg.sender.toString();
+      // Обновляем isRead
+      lastMsg.isRead = true;
+      await lastMsg.save();
 
-      console.log({
-        chatId,
-        messageId: lastMsg._id,
-      });
-      // Оповещаем отправителя
-      io.to(`user:${senderId}`).emit("message_read", {
+      // Уведомляем отправителя, что сообщение прочитано
+      io.to(`user:${userId}`).emit("message_read", {
         chatId,
         messageId: lastMsg._id,
       });
