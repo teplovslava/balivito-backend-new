@@ -77,7 +77,7 @@ export const getMyAds = async (req, res) => {
       limit,
       sort: sortField,
       order: sortOrder,
-      extraFields: 'favoriteCount'
+      extraFields: 'favoriteCount isArchived'
     });
 
     return res.json({ items: ads, pagination });
