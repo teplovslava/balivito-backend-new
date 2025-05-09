@@ -1,17 +1,17 @@
-import jwt from 'jsonwebtoken';
-import cookie from 'cookie';
+import cookie from "cookie";
+import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
 export const socketAuth = (socket, next) => {
   const rawCookie = socket.handshake.headers?.cookie;
 
-  console.log(socket.handshake.headers)
-  const parsedCookies = cookie.parse(rawCookie || '');
+  console.log(socket.handshake.headers);
+  const parsedCookies = cookie.parse(rawCookie || "");
   const token = parsedCookies.token;
 
   if (!token) {
-    return next(new Error('Отсутствует токен'));
+    return next(new Error("Отсутствует токен"));
   }
 
   try {
@@ -19,7 +19,7 @@ export const socketAuth = (socket, next) => {
     socket.userId = decoded.id;
     next();
   } catch (err) {
-    console.error('Ошибка в socketAuth:', err);
-    return next(new Error('Неверный токен'));
+    console.error("Ошибка в socketAuth:", err);
+    return next(new Error("Неверный токен"));
   }
 };

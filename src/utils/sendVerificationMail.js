@@ -25,18 +25,17 @@
 //   });
 // };
 
+import { Resend } from "resend";
 
-import { Resend } from 'resend';
-
-const resend = new Resend('re_LP6kCWZq_BfnF1ZDfupHgxrM2i61XWetz');
+const resend = new Resend("re_LP6kCWZq_BfnF1ZDfupHgxrM2i61XWetz");
 
 export const sendVerificationEmail = async (email, token) => {
   const verifyLink = `${process.env.SITE_URL}/auth/verify?email=${email}&token=${token}`;
 
   await resend.emails.send({
-    from: 'onboarding@resend.dev', // разрешённый отправитель Resend
+    from: "onboarding@resend.dev", // разрешённый отправитель Resend
     to: email,
-    subject: 'Подтверждение регистрации',
+    subject: "Подтверждение регистрации",
     html: `
       <h2>Подтверждение почты</h2>
       <p>Для активации аккаунта перейдите по ссылке:</p>

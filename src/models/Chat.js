@@ -1,29 +1,32 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model } from "mongoose";
 
-const chatSchema = new Schema({
+const chatSchema = new Schema(
+  {
     ad: {
       type: Schema.Types.ObjectId,
-      ref: 'Ad',
+      ref: "Ad",
       required: true,
     },
     participants: [
       {
         type: Schema.Types.ObjectId,
-        ref: 'User',
+        ref: "User",
         required: true,
-      }
+      },
     ],
     lastMessage: {
       text: { type: String },
-      date: { type: Date }
+      date: { type: Date },
     },
     unreadCounts: {
       type: Map,
       of: Number,
-      default: {}
-    }
-  }, {
-    timestamps: true
-  });
-  
-export default model('Chat', chatSchema);
+      default: {},
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+export default model("Chat", chatSchema);

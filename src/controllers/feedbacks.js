@@ -1,6 +1,6 @@
 // controllers/feedbackController.js
-import User from '../models/User.js';
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
+import User from "../models/User.js";
 
 export const setFeedback = async (req, res) => {
   try {
@@ -9,18 +9,20 @@ export const setFeedback = async (req, res) => {
     const { text, rating } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(targetId)) {
-      return res.status(400).json({ message: 'Некорректный ID пользователя' });
+      return res.status(400).json({ message: "Некорректный ID пользователя" });
     }
 
     if (authorId === targetId) {
-      return res.status(400).json({ message: 'Нельзя оставить отзыв самому себе' });
+      return res
+        .status(400)
+        .json({ message: "Нельзя оставить отзыв самому себе" });
     }
 
     const targetUser = await User.findById(targetId);
     const authorUser = await User.findById(authorId);
 
     if (!targetUser || !authorUser) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
+      return res.status(404).json({ message: "Пользователь не найден" });
     }
 
     const newFeedback = {
@@ -36,15 +38,17 @@ export const setFeedback = async (req, res) => {
     targetUser.feedbacks.push(newFeedback);
 
     // Пересчитываем среднюю оценку
-    const avgRating = targetUser.feedbacks.reduce((acc, curr) => acc + Number(curr.rating), 0) / targetUser.feedbacks.length;
+    const avgRating =
+      targetUser.feedbacks.reduce((acc, curr) => acc + Number(curr.rating), 0) /
+      targetUser.feedbacks.length;
     targetUser.rating = Number(avgRating.toFixed(1));
 
     await targetUser.save();
 
     res.status(201).json({ feedback: newFeedback, rating: targetUser.rating });
   } catch (err) {
-    console.error('Ошибка добавления отзыва:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка добавления отзыва:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -54,13 +58,13 @@ export const getFeedback = async (req, res) => {
     const { page = 1, limit = 10 } = req.query;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: 'Некорректный ID пользователя' });
+      return res.status(400).json({ message: "Некорректный ID пользователя" });
     }
 
-    const user = await User.findById(userId).select('feedbacks rating');
+    const user = await User.findById(userId).select("feedbacks rating");
 
     if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
+      return res.status(404).json({ message: "Пользователь не найден" });
     }
 
     const allFeedbacks = user.feedbacks.slice().reverse();
@@ -77,8 +81,8 @@ export const getFeedback = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Ошибка получения отзывов:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка получения отзывов:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -91,16 +95,18 @@ export const deleteFeedback = async (req, res) => {
     const user = await User.findById(targetId);
 
     if (!user) {
-      return res.status(404).json({ message: 'Пользователь не найден' });
+      return res.status(404).json({ message: "Пользователь не найден" });
     }
 
     const feedback = user.feedbacks.id(feedbackId);
     if (!feedback) {
-      return res.status(404).json({ message: 'Отзыв не найден' });
+      return res.status(404).json({ message: "Отзыв не найден" });
     }
 
     if (feedback.author._id.toString() !== userId) {
-      return res.status(403).json({ message: 'Вы не можете удалить этот отзыв' });
+      return res
+        .status(403)
+        .json({ message: "Вы не можете удалить этот отзыв" });
     }
 
     feedback.remove();
@@ -108,14 +114,15 @@ export const deleteFeedback = async (req, res) => {
     // Пересчёт рейтинга
     const feedbacks = user.feedbacks;
     const avgRating = feedbacks.length
-      ? feedbacks.reduce((acc, curr) => acc + Number(curr.rating), 0) / feedbacks.length
+      ? feedbacks.reduce((acc, curr) => acc + Number(curr.rating), 0) /
+        feedbacks.length
       : 0;
     user.rating = Number(avgRating.toFixed(1));
 
     await user.save();
-    res.json({ message: 'Отзыв удалён', rating: user.rating });
+    res.json({ message: "Отзыв удалён", rating: user.rating });
   } catch (err) {
-    console.error('Ошибка удаления отзыва:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка удаления отзыва:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };

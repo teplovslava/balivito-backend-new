@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import { Schema, model } from "mongoose";
 
 const adSchema = new Schema(
   {
@@ -19,39 +19,41 @@ const adSchema = new Schema(
       rub: { type: Number, min: 0 },
     },
     category: {
-        type: Schema.Types.ObjectId,
-        ref: 'Category',
-        required: true,
-    },      
-    photos: [{
-      id: { type: Schema.Types.ObjectId, ref: 'UploadedFile' },
-      uri: String,
-      filename: String
-    }],
+      type: Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+    },
+    photos: [
+      {
+        id: { type: Schema.Types.ObjectId, ref: "UploadedFile" },
+        uri: String,
+        filename: String,
+      },
+    ],
     viewerIds: [
-        {
-          type: Schema.Types.ObjectId,
-          ref: 'User',
-        }
-      ],      
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     author: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     location: {
-        type: Schema.Types.ObjectId,
-        ref: 'Location',
-        required: true,
-      },
+      type: Schema.Types.ObjectId,
+      ref: "Location",
+      required: true,
+    },
     favoriteUserIds: [
       {
         type: Schema.Types.ObjectId,
-        ref: 'User',
-      }
+        ref: "User",
+      },
     ],
     favoriteCount: {
-      type:Number
+      type: Number,
     },
     isArchived: {
       type: Boolean,
@@ -61,4 +63,4 @@ const adSchema = new Schema(
   { timestamps: true }
 );
 
-export default model('Ad', adSchema);
+export default model("Ad", adSchema);

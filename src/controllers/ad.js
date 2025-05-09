@@ -1,12 +1,15 @@
-import mongoose from 'mongoose';
-import Ad from '../models/Ad.js';
-import User from '../models/User.js'
-import UploadedFile from '../models/UploadFile.js'
-import fs from 'fs';
-import path from 'path';
-import { jaccardSimilarity, SIMILARITY_THRESHOLD } from '../utils/checkTitle.js';
-import { getPaginatedAds } from '../utils/getPaginatedAds.js';
-import { escapeRegExp } from '../utils/escapeRegExp.js';
+import fs from "fs";
+import mongoose from "mongoose";
+import path from "path";
+import Ad from "../models/Ad.js";
+import UploadedFile from "../models/UploadFile.js";
+import User from "../models/User.js";
+import {
+  jaccardSimilarity,
+  SIMILARITY_THRESHOLD,
+} from "../utils/checkTitle.js";
+import { escapeRegExp } from "../utils/escapeRegExp.js";
+import { getPaginatedAds } from "../utils/getPaginatedAds.js";
 
 export const createAd = async (req, res) => {
   try {
@@ -16,10 +19,14 @@ export const createAd = async (req, res) => {
 
     // Проверка: хотя бы одна валюта задана
     if (usd == undefined && idr == undefined && rub == undefined) {
-      return res.status(400).json({ message: 'Укажите хотя бы одну цену: usd, idr или rub' });
+      return res
+        .status(400)
+        .json({ message: "Укажите хотя бы одну цену: usd, idr или rub" });
     }
 
-    const existingAds = await Ad.find({ author: req.userId, category }).select('title');
+    const existingAds = await Ad.find({ author: req.userId, category }).select(
+      "title"
+    );
 
     const dublicate = existingAds.find((ad) => {
       const similarity = jaccardSimilarity(ad.title, title);
@@ -27,14 +34,18 @@ export const createAd = async (req, res) => {
     });
 
     if (dublicate) {
-      return res.status(409).json({ message: 'Похоже, такое объявление уже существует', ad: dublicate });
+      return res.status(409).json({
+        message: "Похоже, такое объявление уже существует",
+        ad: dublicate,
+      });
     }
 
-    const photoPaths = req.uploadedFiles.map(file => ({
-      id: file._id,
-      uri: file.uri,
-      filename: file.filename
-    })) || [];
+    const photoPaths =
+      req.uploadedFiles.map((file) => ({
+        id: file._id,
+        uri: file.uri,
+        filename: file.filename,
+      })) || [];
 
     const newAd = new Ad({
       title,
@@ -49,8 +60,8 @@ export const createAd = async (req, res) => {
     const savedAd = await newAd.save();
     res.status(201).json(savedAd);
   } catch (error) {
-    console.error('Ошибка создания объявления:', error);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка создания объявления:", error);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -58,14 +69,14 @@ export const getMyAds = async (req, res) => {
   try {
     const userId = req.userId;
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: 'Некорректный пользователь' });
+      return res.status(400).json({ message: "Некорректный пользователь" });
     }
 
     // Параметры запроса
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const sortField = req.query.sort || 'createdAt';
-    const sortOrder = req.query.order === 'asc' ? 'asc' : 'desc';
+    const sortField = req.query.sort || "createdAt";
+    const sortOrder = req.query.order === "asc" ? "asc" : "desc";
 
     // Фильтр по автору
     const filter = { author: userId };
@@ -77,13 +88,13 @@ export const getMyAds = async (req, res) => {
       limit,
       sort: sortField,
       order: sortOrder,
-      extraFields: 'favoriteCount isArchived'
+      extraFields: "favoriteCount isArchived",
     });
 
     return res.json({ items: ads, pagination });
   } catch (err) {
-    console.error('Ошибка получения моих объявлений:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка получения моих объявлений:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -93,16 +104,16 @@ export const getAdById = async (req, res) => {
     const viewerId = req.userId;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Некорректный ID' });
+      return res.status(400).json({ message: "Некорректный ID" });
     }
 
     const ad = await Ad.findById(id)
-      .populate('author', '-password -__v -createdAt -updatedAt')
-      .populate('category', '-__v')
-      .populate('location');
+      .populate("author", "-password -__v -createdAt -updatedAt")
+      .populate("category", "-__v")
+      .populate("location");
 
     if (!ad) {
-      return res.status(404).json({ message: 'Объявление не найдено' });
+      return res.status(404).json({ message: "Объявление не найдено" });
     }
 
     if (viewerId && !ad.viewerIds.includes(viewerId)) {
@@ -113,12 +124,14 @@ export const getAdById = async (req, res) => {
     await User.findByIdAndUpdate(viewerId, {
       $push: {
         viewedHistory: {
-          $each: [{
-            ad: ad._id,
-            category: ad.category._id,
-            location: ad.location._id,
-            viewedAt: new Date(),
-          }],
+          $each: [
+            {
+              ad: ad._id,
+              category: ad.category._id,
+              location: ad.location._id,
+              viewedAt: new Date(),
+            },
+          ],
           $position: 0,
           $slice: 10,
         },
@@ -128,8 +141,10 @@ export const getAdById = async (req, res) => {
     let isFavorite = false;
 
     if (viewerId) {
-      const user = await User.findById(viewerId).select('favorites');
-      isFavorite = user.favorites.findIndex((fav) =>fav.toString() === id.toString()) > -1;
+      const user = await User.findById(viewerId).select("favorites");
+      isFavorite =
+        user.favorites.findIndex((fav) => fav.toString() === id.toString()) >
+        -1;
     }
 
     res.status(200).json({
@@ -138,8 +153,8 @@ export const getAdById = async (req, res) => {
       isFavorite,
     });
   } catch (err) {
-    console.error('Ошибка получения объявления:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка получения объявления:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -148,8 +163,8 @@ export const getAds = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      sort = 'createdAt',
-      order = 'desc',
+      sort = "createdAt",
+      order = "desc",
       category,
       location,
       search,
@@ -163,7 +178,7 @@ export const getAds = async (req, res) => {
     if (location) filter.location = location;
     if (search) {
       const escapedSearch = escapeRegExp(search);
-      filter.title = { $regex: new RegExp(escapedSearch, 'i') };
+      filter.title = { $regex: new RegExp(escapedSearch, "i") };
     }
 
     const { ads, pagination } = await getPaginatedAds({
@@ -201,8 +216,8 @@ export const getAds = async (req, res) => {
       }
     }
   } catch (err) {
-    console.error('Ошибка получения объявлений:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка получения объявлений:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -212,16 +227,16 @@ export const deleteAd = async (req, res) => {
 
     const ad = await Ad.findById(id);
     if (!ad) {
-      return res.status(404).json({ message: 'Объявление не найдено' });
+      return res.status(404).json({ message: "Объявление не найдено" });
     }
 
     if (ad.author.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Нет доступа' });
+      return res.status(403).json({ message: "Нет доступа" });
     }
 
     if (ad.photos && ad.photos.length > 0) {
       for (const photo of ad.photos) {
-        const localPath = path.join('uploads', photo.filename);
+        const localPath = path.join("uploads", photo.filename);
         if (fs.existsSync(localPath)) {
           fs.unlinkSync(localPath);
         }
@@ -232,10 +247,10 @@ export const deleteAd = async (req, res) => {
 
     await ad.deleteOne();
 
-    res.json({ message: 'Объявление и связанные фото удалены' });
+    res.json({ message: "Объявление и связанные фото удалены" });
   } catch (err) {
-    console.error('Ошибка удаления объявления:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка удаления объявления:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -246,23 +261,23 @@ export const updateAd = async (req, res) => {
     const { usd, idr, rub } = price || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Некорректный ID объявления' });
+      return res.status(400).json({ message: "Некорректный ID объявления" });
     }
 
     const ad = await Ad.findById(id);
     if (!ad) {
-      return res.status(404).json({ message: 'Объявление не найдено' });
+      return res.status(404).json({ message: "Объявление не найдено" });
     }
 
     if (ad.author.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Нет прав на редактирование' });
+      return res.status(403).json({ message: "Нет прав на редактирование" });
     }
 
     if (price && usd == null && idr == null && rub == null) {
-      return res.status(400).json({ message: 'Укажите хотя бы одну цену' });
+      return res.status(400).json({ message: "Укажите хотя бы одну цену" });
     }
 
-    ['title','description','category','location'].forEach(field => {
+    ["title", "description", "category", "location"].forEach((field) => {
       if (req.body[field] !== undefined) ad[field] = req.body[field];
     });
 
@@ -276,7 +291,7 @@ export const updateAd = async (req, res) => {
     // Обработка фотографий через req.uploadedFiles
     if (Array.isArray(req.uploadedFiles) && req.uploadedFiles.length > 0) {
       // ✅ НЕ удаляем старые — потому что они уже повторно прикреплены и обработаны
-      ad.photos = req.uploadedFiles.map(file => ({
+      ad.photos = req.uploadedFiles.map((file) => ({
         id: file._id,
         uri: file.uri,
         filename: file.filename,
@@ -286,8 +301,8 @@ export const updateAd = async (req, res) => {
     const updated = await ad.save();
     res.json(updated);
   } catch (err) {
-    console.error('Ошибка при редактировании:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка при редактировании:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -298,7 +313,7 @@ export const getRecommendedAds = async (req, res) => {
     const limit = parseInt(req.query.limit) || 30;
 
     if (!userId) {
-      return res.status(400).json({ message: 'Неизвестный пользователь' });
+      return res.status(400).json({ message: "Неизвестный пользователь" });
     }
 
     const user = await User.findById(userId);
@@ -308,10 +323,14 @@ export const getRecommendedAds = async (req, res) => {
     if (!user || !user.viewedHistory?.length) {
       const filter = { author: { $ne: userId } };
 
-      const { ads, pagination } = await getPaginatedAds({ filter, page, limit });
+      const { ads, pagination } = await getPaginatedAds({
+        filter,
+        page,
+        limit,
+      });
 
-      const favoriteSet = new Set(favorites.map(fav => fav.toString()));
-      const items = ads.map(ad => ({
+      const favoriteSet = new Set(favorites.map((fav) => fav.toString()));
+      const items = ads.map((ad) => ({
         ...ad.toObject(),
         isFavorite: favoriteSet.has(ad._id.toString()),
       }));
@@ -324,28 +343,31 @@ export const getRecommendedAds = async (req, res) => {
     const now = Date.now();
 
     for (const view of user.viewedHistory) {
-      const timeDiff = (now - new Date(view.viewedAt).getTime()) / (1000 * 60 * 60); // в часах
+      const timeDiff =
+        (now - new Date(view.viewedAt).getTime()) / (1000 * 60 * 60); // в часах
       const score = Math.max(1, 24 - timeDiff);
 
       if (view.category) {
-        scoreMap[`cat:${view.category}`] = (scoreMap[`cat:${view.category}`] || 0) + score;
+        scoreMap[`cat:${view.category}`] =
+          (scoreMap[`cat:${view.category}`] || 0) + score;
       }
       if (view.location) {
-        scoreMap[`loc:${view.location}`] = (scoreMap[`loc:${view.location}`] || 0) + score;
+        scoreMap[`loc:${view.location}`] =
+          (scoreMap[`loc:${view.location}`] || 0) + score;
       }
     }
 
     const topCategories = Object.entries(scoreMap)
-      .filter(([k]) => k.startsWith('cat:'))
+      .filter(([k]) => k.startsWith("cat:"))
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
-      .map(([k]) => k.split(':')[1]);
+      .map(([k]) => k.split(":")[1]);
 
     const topLocations = Object.entries(scoreMap)
-      .filter(([k]) => k.startsWith('loc:'))
+      .filter(([k]) => k.startsWith("loc:"))
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
-      .map(([k]) => k.split(':')[1]);
+      .map(([k]) => k.split(":")[1]);
 
     const filter = {
       $or: [
@@ -358,17 +380,16 @@ export const getRecommendedAds = async (req, res) => {
 
     const { ads, pagination } = await getPaginatedAds({ filter, page, limit });
 
-    const favoriteSet = new Set(favorites.map(fav => fav.toString()));
-    const items = ads.map(ad => ({
+    const favoriteSet = new Set(favorites.map((fav) => fav.toString()));
+    const items = ads.map((ad) => ({
       ...ad.toObject(),
       isFavorite: favoriteSet.has(ad._id.toString()),
     }));
 
     res.json({ items, pagination });
-
   } catch (err) {
-    console.error('Ошибка получения рекомендаций:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка получения рекомендаций:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -386,13 +407,13 @@ export const getSearchSuggestions = async (req, res) => {
       {
         $match: {
           title: {
-            $regex: new RegExp(escapedQuery, 'i'),
+            $regex: new RegExp(escapedQuery, "i"),
           },
         },
       },
       {
         $group: {
-          _id: '$title',
+          _id: "$title",
         },
       },
       {
@@ -401,15 +422,15 @@ export const getSearchSuggestions = async (req, res) => {
       {
         $project: {
           _id: 0,
-          title: '$_id',
+          title: "$_id",
         },
       },
     ]);
 
     res.json(suggestions.map((s) => s.title));
   } catch (err) {
-    console.error('Ошибка подсказок:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка подсказок:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -418,19 +439,21 @@ export const archiveAd = async (req, res) => {
     const { id } = req.params;
 
     const ad = await Ad.findById(id);
-    if (!ad) return res.status(404).json({ message: 'Объявление не найдено' });
+    if (!ad) return res.status(404).json({ message: "Объявление не найдено" });
 
     if (ad.author.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Нет прав на архивирование этого объявления' });
+      return res
+        .status(403)
+        .json({ message: "Нет прав на архивирование этого объявления" });
     }
 
     ad.isArchived = true;
     await ad.save();
 
-    res.json({ message: 'Объявление архивировано', ad });
+    res.json({ message: "Объявление архивировано", ad });
   } catch (err) {
-    console.error('Ошибка архивирования объявления:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка архивирования объявления:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };
 
@@ -439,18 +462,20 @@ export const unarchiveAd = async (req, res) => {
     const { id } = req.params;
 
     const ad = await Ad.findById(id);
-    if (!ad) return res.status(404).json({ message: 'Объявление не найдено' });
+    if (!ad) return res.status(404).json({ message: "Объявление не найдено" });
 
     if (ad.author.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Нет прав на восстановление этого объявления' });
+      return res
+        .status(403)
+        .json({ message: "Нет прав на восстановление этого объявления" });
     }
 
     ad.isArchived = false;
     await ad.save();
 
-    res.json({ message: 'Объявление восстановлено из архива', ad });
+    res.json({ message: "Объявление восстановлено из архива", ad });
   } catch (err) {
-    console.error('Ошибка восстановления объявления:', err);
-    res.status(500).json({ message: 'Ошибка сервера' });
+    console.error("Ошибка восстановления объявления:", err);
+    res.status(500).json({ message: "Ошибка сервера" });
   }
 };

@@ -1,12 +1,12 @@
-import Category from '../models/Category.js';
+import Category from "../models/Category.js";
 
 export const categories = [
-  { name: 'Электроника', slug: 'electronics' },
-  { name: 'Недвижимость', slug: 'real-estate' },
-  { name: 'Услуги', slug: 'services' },
-  { name: 'Транспорт', slug: 'vehicles' },
-  { name: 'Одежда', slug: 'clothing' },
-  { name: 'Другое', slug: 'other' },
+  { name: "Электроника", slug: "electronics" },
+  { name: "Недвижимость", slug: "real-estate" },
+  { name: "Услуги", slug: "services" },
+  { name: "Транспорт", slug: "vehicles" },
+  { name: "Одежда", slug: "clothing" },
+  { name: "Другое", slug: "other" },
 ];
 export async function ensureDefaultCategories() {
   for (const cat of categories) {

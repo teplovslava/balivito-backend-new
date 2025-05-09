@@ -1,12 +1,12 @@
 // middleware/upload.js
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import sharp from 'sharp';
-import UploadedFile from '../models/UploadFile.js';
+import fs from "fs";
+import multer from "multer";
+import path from "path";
+import sharp from "sharp";
+import UploadedFile from "../models/UploadFile.js";
 
-const tmpDir = 'tmp/';
-const uploadDir = 'uploads/';
+const tmpDir = "tmp/";
+const uploadDir = "uploads/";
 
 // Создание директорий, если их нет
 if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
@@ -37,10 +37,7 @@ export const compressImages = async (req, res, next) => {
     for (const file of req.files) {
       const compressedPath = path.join(uploadDir, file.filename);
 
-      await sharp(file.path)
-        .rotate()
-        .jpeg()
-        .toFile(compressedPath);
+      await sharp(file.path).rotate().jpeg().toFile(compressedPath);
 
       fs.unlinkSync(file.path); // удаляем временный файл
 
@@ -63,11 +60,10 @@ export const compressImages = async (req, res, next) => {
       })
     );
 
-
     req.uploadedFiles = uploadedFiles;
     next();
   } catch (err) {
-    console.error('❌ Ошибка при сжатии изображений:', err);
-    res.status(500).json({ message: 'Ошибка при обработке изображений' });
+    console.error("❌ Ошибка при сжатии изображений:", err);
+    res.status(500).json({ message: "Ошибка при обработке изображений" });
   }
 };

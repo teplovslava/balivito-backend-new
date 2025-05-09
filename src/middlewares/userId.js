@@ -1,6 +1,6 @@
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
-import { v4 as uuidv4 } from 'uuid';
+import jwt from "jsonwebtoken";
+import { v4 as uuidv4 } from "uuid";
+import User from "../models/User.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -26,11 +26,13 @@ export const userIdMiddleware = async (req, res, next) => {
       const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
 
       // генерируем новый access
-      const newAccessToken = jwt.sign({ id: decoded.id }, JWT_SECRET, { expiresIn: '15m' });
+      const newAccessToken = jwt.sign({ id: decoded.id }, JWT_SECRET, {
+        expiresIn: "15m",
+      });
 
-      res.cookie('token', newAccessToken, {
+      res.cookie("token", newAccessToken, {
         httpOnly: true,
-        sameSite: 'Lax',
+        sameSite: "Lax",
         maxAge: 1000 * 60 * 15,
       });
 
@@ -38,7 +40,9 @@ export const userIdMiddleware = async (req, res, next) => {
       return next();
     } catch (err) {
       // ❌ refresh протух — НИКАКОГО создания гостя
-      return res.status(401).json({ message: 'Сессия истекла. Пожалуйста, залогиньтесь заново.' });
+      return res
+        .status(401)
+        .json({ message: "Сессия истекла. Пожалуйста, залогиньтесь заново." });
     }
   }
 
@@ -53,25 +57,31 @@ export const userIdMiddleware = async (req, res, next) => {
 
     await newGuest.save();
 
-    const guestAccessToken = jwt.sign({ id: newGuest._id }, JWT_SECRET, { expiresIn: '15m' });
-    const guestRefreshToken = jwt.sign({ id: newGuest._id }, REFRESH_SECRET, { expiresIn: '30d' });
+    const guestAccessToken = jwt.sign({ id: newGuest._id }, JWT_SECRET, {
+      expiresIn: "15m",
+    });
+    const guestRefreshToken = jwt.sign({ id: newGuest._id }, REFRESH_SECRET, {
+      expiresIn: "30d",
+    });
 
-    res.cookie('token', guestAccessToken, {
+    res.cookie("token", guestAccessToken, {
       httpOnly: true,
-      sameSite: 'Lax',
+      sameSite: "Lax",
       maxAge: 1000 * 60 * 15,
     });
 
-    res.cookie('refreshToken', guestRefreshToken, {
+    res.cookie("refreshToken", guestRefreshToken, {
       httpOnly: true,
-      sameSite: 'Lax',
+      sameSite: "Lax",
       maxAge: 1000 * 60 * 60 * 24 * 30,
     });
 
     req.userId = newGuest._id.toString();
     return next();
   } catch (guestErr) {
-    console.error('Ошибка при создании гостя:', guestErr);
-    return res.status(500).json({ message: 'Ошибка при создании гостевого пользователя' });
+    console.error("Ошибка при создании гостя:", guestErr);
+    return res
+      .status(500)
+      .json({ message: "Ошибка при создании гостевого пользователя" });
   }
 };

@@ -1,21 +1,21 @@
-import { Router } from 'express';
-import { requireAuthorizedUser } from '../middlewares/auth.js';
+import { Router } from "express";
+import { requireAuthorizedUser } from "../middlewares/auth.js";
 
 import {
+  deleteFeedback,
   getFeedback,
   setFeedback,
-  deleteFeedback,
-} from '../controllers/feedbacks.js';
+} from "../controllers/feedbacks.js";
 
 const router = Router();
 
 // Оставить отзыв
-router.post('/:id', requireAuthorizedUser, setFeedback);
+router.post("/:id", requireAuthorizedUser, setFeedback);
 
 // Получить отзывы пользователя
-router.get('/:id', getFeedback);
+router.get("/:id", getFeedback);
 
 // Удалить отзыв
-router.delete('/:id/:feedbackId', requireAuthorizedUser, deleteFeedback);
+router.delete("/:id/:feedbackId", requireAuthorizedUser, deleteFeedback);
 
 export default router;
