@@ -215,12 +215,16 @@ export const readChat = async (socket, io, { chatId }) => {
     // Получаем последнее сообщение от собеседника
     const lastMsg = await Message.findOne({
       chatId,
-      sender: { $ne: userId },
+      sender: userId,
     }).sort({ createdAt: -1 });
 
     if (lastMsg) {
       const senderId = lastMsg.sender.toString();
 
+      console.log({
+        chatId,
+        messageId: lastMsg._id,
+      });
       // Оповещаем отправителя
       io.to(`user:${senderId}`).emit("message_read", {
         chatId,
