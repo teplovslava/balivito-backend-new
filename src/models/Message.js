@@ -25,6 +25,10 @@ const messageSchema = new Schema(
       default: "",
     },
     isRead: { type: Boolean, default: false },
+    reaction: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -235,6 +235,40 @@ export const readChat = async (socket, io, { chatId }) => {
   }
 };
 
+export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
+  try {
+    const userId = socket.userId;
+
+    // 1. Ищем сообщение
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return cb({ success: false, error: "Сообщение не найдено" });
+    }
+
+    // 2. Проверка: входит ли пользователь в чат
+    const chat = await Chat.findById(message.chatId);
+    if (!chat || !chat.participants.includes(userId)) {
+      return cb({ success: false, error: "Нет доступа к чату" });
+    }
+
+    // 3. Обновляем реакцию
+    message.reaction = reaction || null;
+    await message.save();
+
+    // 4. Уведомляем всех участников чата
+    io.to(chat._id.toString()).emit("reaction_updated", {
+      messageId,
+      chatId: chat._id,
+      reaction: message.reaction,
+    });
+
+    cb({ success: true });
+  } catch (err) {
+    console.error("Ошибка при установке реакции:", err);
+    cb({ success: false, error: "Ошибка при установке реакции" });
+  }
+};
+
 /* ------------------------------------------------------------------ */
 /* 7. Загрузка фото                                                   */
 /* ------------------------------------------------------------------ */

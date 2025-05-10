@@ -4,6 +4,7 @@ import {
   getUserChats,
   readChat,
   sendMessage,
+  setReaction,
 } from "./controllers/chat.js";
 
 export const socket = async (ioSocket, io) => {
@@ -17,6 +18,7 @@ export const socket = async (ioSocket, io) => {
     sendMessage(ioSocket, io, data, cb)
   );
   ioSocket.on("read_chat", (data) => readChat(ioSocket, io, data));
+  ioSocket.on("set_reaction", (data) => setReaction(ioSocket, io, data));
 
   ioSocket.on("disconnect", () => {
     console.log("Пользователь отключился:", ioSocket.id);
