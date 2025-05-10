@@ -215,7 +215,7 @@ export const readChat = async (socket, io, { chatId }) => {
     // Ищем последнее сообщение, которое отправил текущий пользователь
     const lastMsg = await Message.findOne({
       chatId,
-      sender: userId,
+      sender: { $ne: userId },
       isRead: { $ne: true }, // только если ещё не было прочитано
     }).sort({ createdAt: -1 });
 
