@@ -245,6 +245,13 @@ export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
       return cb({ success: false, error: "Сообщение не найдено" });
     }
 
+    if (message.sender.toString() === userId.toString()) {
+      return cb({
+        success: false,
+        error: "Нельзя ставить реакцию на своё сообщение",
+      });
+    }
+
     // 2. Проверка: входит ли пользователь в чат
     const chat = await Chat.findById(message.chatId);
     if (!chat || !chat.participants.includes(userId)) {
