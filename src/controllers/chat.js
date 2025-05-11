@@ -109,7 +109,15 @@ export const getMessages = async (
 export const sendMessage = async (
   socket,
   io,
-  { chatId, adId, recipientId, text = "", mediaUrl = [], mediaType = "" },
+  {
+    chatId,
+    adId,
+    recipientId,
+    text = "",
+    mediaUrl = [],
+    mediaType = "",
+    replyTo = null, // ← добавлен параметр ответа
+  },
   callback
 ) => {
   try {
@@ -133,16 +141,45 @@ export const sendMessage = async (
       isNewChat = true;
     }
 
-    // 2. Создаём сообщение
+    if (replyTo) {
+      const repliedMessage = await Message.findById(replyTo).lean();
+      if (!repliedMessage) {
+        return callback({
+          success: false,
+          error: "Сообщение, на которое вы отвечаете, не найдено",
+        });
+      }
+      if (String(repliedMessage.chatId) !== String(chat._id)) {
+        return callback({
+          success: false,
+          error: "Нельзя отвечать на сообщение из другого чата",
+        });
+      }
+    }
+
+    // 2. Создаём сообщение с replyTo
     const message = await Message.create({
       chatId: chat._id,
       sender: senderId,
       text,
       mediaUrl,
       mediaType,
+      replyTo, // ✅ добавлено поле ответа
     });
 
-    // 3. Обновляем метаданные чата
+    // 3. Пополняем replyTo данными (если указан)
+    if (replyTo) {
+      await message.populate({
+        path: "replyTo",
+        select: "text sender mediaUrl",
+        populate: {
+          path: "sender",
+          select: "name",
+        },
+      });
+    }
+
+    // 4. Обновляем метаданные чата
     const anotherUserId = chat.participants.find(
       (id) => id.toString() !== senderId
     );
@@ -155,7 +192,7 @@ export const sendMessage = async (
     }
     await chat.save();
 
-    // 4. Оповещение о новом сообщении
+    // 5. Оповещение о новом сообщении
     socket.join(chat._id.toString());
     const newMessage = {
       _id: message._id,
@@ -166,12 +203,12 @@ export const sendMessage = async (
       mediaType: message.mediaType,
       createdAt: message.createdAt,
       isRead: message.isRead,
+      replyTo: message.replyTo || null, // ✅ передаём в клиент
     };
     io.to(chat._id.toString()).emit("new_message", newMessage);
 
-    // 5. Если чат новый — обогащаем и рассылаем одним событием
+    // 6. Если чат новый — рассылаем событие
     if (isNewChat) {
-      // повторно получаем chat с populate
       const fullChat = await Chat.findById(chat._id)
         .populate({ path: "ad", select: "title photos" })
         .populate({ path: "participants", select: "name email" });
@@ -179,12 +216,9 @@ export const sendMessage = async (
       const senderChatDto = enrichChat(fullChat, senderId);
       const companionChatDto = enrichChat(fullChat, recipientId);
 
-      // 2) Подсаживаем все соединения получателя (и при желании отправителя) в комнату чата
-      //    Чтобы внутри чата потом точно слушать `new_message` и т.п.
       io.in(`user:${recipientId}`).socketsJoin(chat._id.toString());
       io.in(`user:${senderId}`).socketsJoin(chat._id.toString());
 
-      // 3) Шлём каждому своё событие в его «личную» комнату
       io.to(`user:${senderId}`).emit("new_chat", senderChatDto);
       io.to(`user:${recipientId}`).emit("new_chat", companionChatDto);
     }
