@@ -32,9 +32,6 @@ const enrichChat = (chat, userId) => {
   };
 };
 
-/* ------------------------------------------------------------------ */
-/* 1. Получение списка чатов пользователя                             */
-/* ------------------------------------------------------------------ */
 export const getUserChats = async (socket, _data, callback) => {
   const userId = socket.userId;
   try {
@@ -56,16 +53,11 @@ export const getUserChats = async (socket, _data, callback) => {
   }
 };
 
-/* ------------------------------------------------------------------ */
-/* 2. Автоподписка пользователя на его комнаты                        */
-/* ------------------------------------------------------------------ */
 export const connectUser = async (socket) => {
   try {
-    socket.join(`user:${socket.userId}`); // личная комната
-
+    socket.join(`user:${socket.userId}`);
     const userChats = await Chat.find({ participants: socket.userId }, "_id");
     userChats.forEach((chat) => socket.join(chat._id.toString()));
-
     console.log(
       `✅ user:${socket.userId} → личная + ${userChats.length} чатов`
     );
@@ -74,9 +66,6 @@ export const connectUser = async (socket) => {
   }
 };
 
-/* ------------------------------------------------------------------ */
-/* 3. Получение сообщений по chatId                                  */
-/* ------------------------------------------------------------------ */
 export const getMessages = async (
   socket,
   { chatId, page = 1, limit = 20 },
@@ -87,6 +76,12 @@ export const getMessages = async (
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
+      .populate({ path: "sender", select: "name avatar" })
+      .populate({
+        path: "replyTo",
+        select: "text mediaUrl sender",
+        populate: { path: "sender", select: "name avatar" },
+      })
       .lean();
 
     const total = await Message.countDocuments({ chatId });
@@ -103,9 +98,6 @@ export const getMessages = async (
   }
 };
 
-/* ------------------------------------------------------------------ */
-/* 4. Отправка сообщения и обработка нового чата                      */
-/* ------------------------------------------------------------------ */
 export const sendMessage = async (
   socket,
   io,
@@ -116,14 +108,13 @@ export const sendMessage = async (
     text = "",
     mediaUrl = [],
     mediaType = "",
-    replyTo = null, // ← добавлен параметр ответа
+    replyTo = null,
   },
   callback
 ) => {
   try {
     const senderId = socket.userId;
 
-    // 1. Ищем или создаём чат
     let chat = chatId
       ? await Chat.findById(chatId)
       : await Chat.findOne({
@@ -157,29 +148,24 @@ export const sendMessage = async (
       }
     }
 
-    // 2. Создаём сообщение с replyTo
     const message = await Message.create({
       chatId: chat._id,
       sender: senderId,
       text,
       mediaUrl,
       mediaType,
-      replyTo, // ✅ добавлено поле ответа
+      replyTo,
     });
 
-    // 3. Пополняем replyTo данными (если указан)
+    await message.populate({ path: "sender", select: "name avatar" });
     if (replyTo) {
       await message.populate({
         path: "replyTo",
         select: "text sender mediaUrl",
-        populate: {
-          path: "sender",
-          select: "name",
-        },
+        populate: { path: "sender", select: "name avatar" },
       });
     }
 
-    // 4. Обновляем метаданные чата
     const anotherUserId = chat.participants.find(
       (id) => id.toString() !== senderId
     );
@@ -192,7 +178,6 @@ export const sendMessage = async (
     }
     await chat.save();
 
-    // 5. Оповещение о новом сообщении
     socket.join(chat._id.toString());
     const newMessage = {
       _id: message._id,
@@ -203,11 +188,10 @@ export const sendMessage = async (
       mediaType: message.mediaType,
       createdAt: message.createdAt,
       isRead: message.isRead,
-      replyTo: message.replyTo || null, // ✅ передаём в клиент
+      replyTo: message.replyTo || null,
     };
     io.to(chat._id.toString()).emit("new_message", newMessage);
 
-    // 6. Если чат новый — рассылаем событие
     if (isNewChat) {
       const fullChat = await Chat.findById(chat._id)
         .populate({ path: "ad", select: "title photos" })
