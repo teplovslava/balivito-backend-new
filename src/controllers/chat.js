@@ -243,7 +243,7 @@ export const readChat = async (socket, io, { chatId }) => {
       await lastMsg.save();
 
       // Уведомляем отправителя, что сообщение прочитано
-      io.to(`user:${userId}`).emit("message_read", {
+      io.to(`user:${lastMsg.sender.toString()}`).emit("message_read", {
         chatId,
         messageId: lastMsg._id,
       });
