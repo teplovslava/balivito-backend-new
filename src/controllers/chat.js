@@ -456,3 +456,11 @@ export const editMessage = async (
     cb({ success: false, error: "Ошибка при редактировании сообщения" });
   }
 };
+
+export const typeMessage = (socket, io, { chatId, isTyping }) => {
+  socket.to(chatId.toString()).emit("typing", {
+    chatId,
+    userId: socket.userId,
+    isTyping,
+  });
+};

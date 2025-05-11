@@ -7,6 +7,7 @@ import {
   readChat,
   sendMessage,
   setReaction,
+  typeMessage,
 } from "./controllers/chat.js";
 
 export const socket = async (ioSocket, io) => {
@@ -25,6 +26,7 @@ export const socket = async (ioSocket, io) => {
   );
   ioSocket.on("delete_message", (data) => deleteMessage(ioSocket, io, data));
   ioSocket.on("change_message", (data) => editMessage(ioSocket, io, data));
+  ioSocket.on("type_message", (data) => typeMessage(ioSocket, io, data));
 
   ioSocket.on("disconnect", () => {
     console.log("Пользователь отключился:", ioSocket.id);
