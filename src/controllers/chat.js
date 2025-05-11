@@ -383,8 +383,11 @@ export const editMessage = async (
     const userId = socket.userId;
 
     const message = await Message.findById(messageId);
-    if (!message) return cb({ success: false, error: "Сообщение не найдено" });
+    if (!message) {
+      return cb({ success: false, error: "Сообщение не найдено" });
+    }
 
+    // Проверка прав
     if (message.sender.toString() !== userId) {
       return cb({
         success: false,
@@ -394,25 +397,31 @@ export const editMessage = async (
 
     const oldMediaUrls = message.mediaUrl || [];
 
-    const hasTextChanged = text !== undefined && message.text !== text;
+    const hasTextChanged = typeof text === "string" && message.text !== text;
     const hasMediaChanged =
-      mediaUrl && JSON.stringify(mediaUrl) !== JSON.stringify(oldMediaUrls);
+      Array.isArray(mediaUrl) &&
+      JSON.stringify(mediaUrl) !== JSON.stringify(oldMediaUrls);
 
+    // Ничего не поменялось
     if (!hasTextChanged && !hasMediaChanged) {
       return cb({ success: false, error: "Изменений не обнаружено" });
     }
 
     // Обновляем
-    if (text !== undefined) message.text = text;
-    if (mediaUrl) message.mediaUrl = mediaUrl;
+    if (hasTextChanged) message.text = text;
+    if (hasMediaChanged) message.mediaUrl = mediaUrl;
+
     message.isChanged = true;
     await message.save();
 
-    // Удаляем старые изображения, если были заменены
+    // Удаляем только удалённые изображения
     if (hasMediaChanged) {
+      const deletedUris = oldMediaUrls.filter((uri) => !mediaUrl.includes(uri));
+
       const filesToDelete = await UploadedFile.find({
-        uri: { $in: oldMediaUrls },
+        uri: { $in: deletedUris },
       });
+
       for (const file of filesToDelete) {
         const filePath = path.join("uploads", file.filename);
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -420,9 +429,10 @@ export const editMessage = async (
       }
     }
 
-    // Повторно получаем с populate
+    // Повторный populate
     await message.populate({ path: "sender", select: "name avatar" });
 
+    // Оповещение всех участников чата
     io.to(message.chatId.toString()).emit("message_updated", {
       messageId: message._id,
       chatId: message.chatId,
