@@ -189,7 +189,9 @@ export const sendMessage = async (
       createdAt: message.createdAt,
       isRead: message.isRead,
       replyTo: message.replyTo || null,
+      isChanged: message.isChanged,
     };
+
     io.to(chat._id.toString()).emit("new_message", newMessage);
 
     if (isNewChat) {
