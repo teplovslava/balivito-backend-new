@@ -318,3 +318,37 @@ export const deleteUploadedPhoto = async (req, res) => {
     res.status(500).json({ message: "Ошибка сервера" });
   }
 };
+
+export const deleteMessage = async (socket, io, { messageId }, cb) => {
+  try {
+    const userId = socket.userId;
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return cb({ success: false, error: "Сообщение не найдено" });
+    }
+
+    // Только автор сообщения может удалить
+    if (message.sender.toString() !== userId.toString()) {
+      return cb({
+        success: false,
+        error: "Вы не можете удалить это сообщение",
+      });
+    }
+
+    const chatId = message.chatId;
+
+    await message.deleteOne();
+
+    // Уведомление всех в чате
+    io.to(chatId.toString()).emit("message_deleted", {
+      messageId,
+      chatId,
+    });
+
+    cb({ success: true });
+  } catch (err) {
+    console.error("Ошибка при удалении сообщения:", err);
+    cb({ success: false, error: "Ошибка при удалении сообщения" });
+  }
+};
