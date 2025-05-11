@@ -257,6 +257,7 @@ export const readChat = async (socket, io, { chatId }) => {
 
 export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
   try {
+    console.log(reaction);
     const userId = socket.userId;
 
     // 1. Ищем сообщение
@@ -265,6 +266,8 @@ export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
       return cb({ success: false, error: "Сообщение не найдено" });
     }
 
+    console.log("1");
+
     if (message.sender.toString() === userId.toString()) {
       return cb({
         success: false,
@@ -272,15 +275,21 @@ export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
       });
     }
 
+    console.log("2");
+
     // 2. Проверка: входит ли пользователь в чат
     const chat = await Chat.findById(message.chatId);
     if (!chat || !chat.participants.includes(userId)) {
       return cb({ success: false, error: "Нет доступа к чату" });
     }
 
+    console.log("3");
+
     // 3. Обновляем реакцию
     message.reaction = reaction || null;
     await message.save();
+
+    console.log("4");
 
     // 4. Уведомляем всех участников чата
     io.to(chat._id.toString()).emit("reaction_updated", {
