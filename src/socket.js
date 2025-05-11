@@ -20,7 +20,9 @@ export const socket = async (ioSocket, io) => {
     sendMessage(ioSocket, io, data, cb)
   );
   ioSocket.on("read_chat", (data) => readChat(ioSocket, io, data));
-  ioSocket.on("set_reaction", (data) => setReaction(ioSocket, io, data));
+  ioSocket.on("set_reaction", (data, cb) =>
+    setReaction(ioSocket, io, data, cb)
+  );
   ioSocket.on("delete_message", (data) => deleteMessage(ioSocket, io, data));
   ioSocket.on("change_message", (data) => editMessage(ioSocket, io, data));
 
