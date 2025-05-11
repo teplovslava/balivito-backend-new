@@ -370,3 +370,68 @@ export const deleteMessage = async (socket, io, { messageId }, cb) => {
     cb({ success: false, error: "Ошибка при удалении сообщения" });
   }
 };
+
+export const editMessage = async (
+  socket,
+  io,
+  { messageId, text, mediaUrl },
+  cb
+) => {
+  try {
+    const userId = socket.userId;
+
+    const message = await Message.findById(messageId);
+    if (!message) return cb({ success: false, error: "Сообщение не найдено" });
+
+    if (message.sender.toString() !== userId) {
+      return cb({
+        success: false,
+        error: "Вы не можете редактировать это сообщение",
+      });
+    }
+
+    const oldMediaUrls = message.mediaUrl || [];
+
+    const hasTextChanged = text !== undefined && message.text !== text;
+    const hasMediaChanged =
+      mediaUrl && JSON.stringify(mediaUrl) !== JSON.stringify(oldMediaUrls);
+
+    if (!hasTextChanged && !hasMediaChanged) {
+      return cb({ success: false, error: "Изменений не обнаружено" });
+    }
+
+    // Обновляем
+    if (text !== undefined) message.text = text;
+    if (mediaUrl) message.mediaUrl = mediaUrl;
+    message.isChanged = true;
+    await message.save();
+
+    // Удаляем старые изображения, если были заменены
+    if (hasMediaChanged) {
+      const filesToDelete = await UploadedFile.find({
+        uri: { $in: oldMediaUrls },
+      });
+      for (const file of filesToDelete) {
+        const filePath = path.join("uploads", file.filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        await file.deleteOne();
+      }
+    }
+
+    // Повторно получаем с populate
+    await message.populate({ path: "sender", select: "name avatar" });
+
+    io.to(message.chatId.toString()).emit("message_updated", {
+      messageId: message._id,
+      chatId: message.chatId,
+      text: message.text,
+      mediaUrl: message.mediaUrl,
+      isChanged: message.isChanged,
+    });
+
+    cb({ success: true, message });
+  } catch (err) {
+    console.error("Ошибка при редактировании сообщения:", err);
+    cb({ success: false, error: "Ошибка при редактировании сообщения" });
+  }
+};

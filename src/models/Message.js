@@ -34,6 +34,10 @@ const messageSchema = new Schema(
       ref: "Message",
       default: null,
     },
+    isChanged: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
