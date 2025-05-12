@@ -8,7 +8,6 @@ import Chat from "../models/Chat.js";
 import Message from "../models/Message.js";
 import UploadedFile from "../models/UploadFile.js";
 
-// Вынесенная функция для обогащения чата в единый формат
 const enrichChat = (chat, userId) => {
   const companion = chat.participants.find((p) => p._id.toString() !== userId);
   const unreadCount = chat.unreadCounts?.get(userId.toString()) || 0;
@@ -134,16 +133,13 @@ export const sendMessage = async (
 
     if (replyTo) {
       const repliedMessage = await Message.findById(replyTo).lean();
-      if (!repliedMessage) {
+      if (
+        !repliedMessage ||
+        String(repliedMessage.chatId) !== String(chat._id)
+      ) {
         return callback({
           success: false,
-          error: "Сообщение, на которое вы отвечаете, не найдено",
-        });
-      }
-      if (String(repliedMessage.chatId) !== String(chat._id)) {
-        return callback({
-          success: false,
-          error: "Нельзя отвечать на сообщение из другого чата",
+          error: "Некорректное сообщение для ответа",
         });
       }
     }
@@ -216,36 +212,33 @@ export const sendMessage = async (
   }
 };
 
-/* ------------------------------------------------------------------ */
-/* 6. Отметить чат прочитанным                                         */
-/* ------------------------------------------------------------------ */
 export const readChat = async (socket, io, { chatId }) => {
   try {
     const userId = socket.userId;
     const chat = await Chat.findById(chatId);
     if (!chat) return;
 
-    // Сброс счётчика непрочитанных сообщений
     chat.unreadCounts.set(userId, 0);
     await chat.save();
 
-    // Присоединение сокета к комнате (на случай первого захода)
     socket.join(chat._id.toString());
 
-    // Ищем последнее сообщение, которое отправил текущий пользователь
     const lastMsg = await Message.findOne({
       chatId,
       sender: { $ne: userId },
-      isRead: { $ne: true }, // только если ещё не было прочитано
-    }).sort({ createdAt: -1 });
+      isRead: { $ne: true },
+    })
+      .sort({ createdAt: -1 })
+      .populate("sender");
 
     if (lastMsg) {
-      // Обновляем isRead
       lastMsg.isRead = true;
       await lastMsg.save();
 
-      // Уведомляем отправителя, что сообщение прочитано
-      io.to(`user:${lastMsg.sender.toString()}`).emit("message_read", {
+      const senderId =
+        lastMsg.sender._id?.toString?.() || lastMsg.sender.toString();
+
+      io.to(`user:${senderId}`).emit("message_read", {
         chatId,
         messageId: lastMsg._id,
       });
@@ -257,41 +250,27 @@ export const readChat = async (socket, io, { chatId }) => {
 
 export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
   try {
-    console.log(reaction);
     const userId = socket.userId;
+    const message = await Message.findById(messageId).populate("sender");
+    if (!message) return cb({ success: false, error: "Сообщение не найдено" });
 
-    // 1. Ищем сообщение
-    const message = await Message.findById(messageId);
-    if (!message) {
-      return cb({ success: false, error: "Сообщение не найдено" });
-    }
-
-    console.log("1");
-
-    if (message.sender.toString() === userId.toString()) {
+    const senderId =
+      message.sender._id?.toString?.() || message.sender.toString();
+    if (senderId === userId.toString()) {
       return cb({
         success: false,
         error: "Нельзя ставить реакцию на своё сообщение",
       });
     }
 
-    console.log("2");
-
-    // 2. Проверка: входит ли пользователь в чат
     const chat = await Chat.findById(message.chatId);
     if (!chat || !chat.participants.includes(userId)) {
       return cb({ success: false, error: "Нет доступа к чату" });
     }
 
-    console.log("3");
-
-    // 3. Обновляем реакцию
     message.reaction = reaction || null;
     await message.save();
 
-    console.log("4");
-
-    // 4. Уведомляем всех участников чата
     io.to(chat._id.toString()).emit("reaction_updated", {
       messageId,
       chatId: chat._id,
@@ -358,7 +337,7 @@ export const deleteMessage = async (socket, io, { messageId }, cb) => {
     }
 
     // Только автор сообщения может удалить
-    if (message.sender.toString() !== userId.toString()) {
+    if (message.sender._id.toString() !== userId.toString()) {
       return cb({
         success: false,
         error: "Вы не можете удалить это сообщение",
