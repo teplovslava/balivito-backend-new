@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { openAd } from "../controllers/open";
+import { openAd } from "../controllers/open.js";
 
 const router = Router();
 
