@@ -3,6 +3,6 @@ import { openAd } from "../controllers/open.js";
 
 const router = Router();
 
-router.get("/", openAd);
+router.get("/:id", openAd);
 
 export default router;
