@@ -12,6 +12,7 @@ import chatRoutes from "./routes/chat.js";
 import favoritesRoutes from "./routes/favorites.js";
 import feedbacksRoutes from "./routes/feedbacks.js";
 import locationRoutes from "./routes/location.js";
+import openRoutes from "./routes/open.js";
 import userRoutes from "./routes/users.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -34,5 +35,6 @@ app.use("/feedbacks", userIdMiddleware, feedbacksRoutes);
 app.use("/category", categoryRoutes);
 app.use("/location", locationRoutes);
 app.use("/chat", userIdMiddleware, chatRoutes);
+app.use("/open", openRoutes);
 
 export default app;
