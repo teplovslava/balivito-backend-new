@@ -208,12 +208,23 @@ export const sendMessage = async (
     }
 
     const recipient = await User.findById(recipientId);
-    console.log(recipient?.expoPushToken);
+
     if (recipient?.expoPushToken) {
       await sendPushNotification(
         recipient.expoPushToken,
         `${message.sender.name}: ${text}`,
-        "Новое сообщение"
+        "Новое сообщение",
+        {
+          chatId: chat._id,
+          adId,
+          companionId: anotherUserId,
+          companionName: await chat.populate({
+            path: "participants",
+            select: "name",
+          }),
+          adPhoto: chat.ad.photos?.[0] || "",
+          adName: chat.ad.title,
+        }
       );
     }
 

@@ -1,13 +1,18 @@
 import axios from "axios";
 
-export const sendPushNotification = async (expoPushToken, message, title) => {
+export const sendPushNotification = async (
+  expoPushToken,
+  message,
+  title = "Уведомление",
+  data = {}
+) => {
   try {
     await axios.post("https://exp.host/--/api/v2/push/send", {
       to: expoPushToken,
       sound: "default",
-      title: title,
+      title,
       body: message,
-      data: { withSome: "data" },
+      data,
     });
   } catch (err) {
     console.error(
