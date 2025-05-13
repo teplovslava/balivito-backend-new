@@ -12,9 +12,7 @@ export const createUser = async (req, res) => {
 };
 
 export const updatePushToken = async (req, res) => {
-  console.log(241412242114);
   try {
-    console.log(req.userId, token);
     const userId = req.userId;
     const { token } = req.body;
     await User.findByIdAndUpdate(userId, { expoPushToken: token });
