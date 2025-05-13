@@ -7,6 +7,7 @@ import path from "path";
 import Chat from "../models/Chat.js";
 import Message from "../models/Message.js";
 import UploadedFile from "../models/UploadFile.js";
+import User from "../models/User.js";
 import { sendPushNotification } from "../utils/sendPushNotification.js";
 
 const enrichChat = (chat, userId) => {
