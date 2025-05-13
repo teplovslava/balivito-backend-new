@@ -52,6 +52,14 @@ jobs:
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
 
     steps:
+      - name: Copy docker-compose.yml
+        uses: appleboy/scp-action@v0.1.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          source: docker-compose.yml
+          target: /opt/stack/balivito-backend-new/
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
