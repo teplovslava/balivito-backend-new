@@ -219,7 +219,7 @@ export const sendMessage = async (
           adId,
           companionId: recipientId,
           companionName: companionName,
-          adPhoto: chat.ad.photos?.[0] || "",
+          adPhoto: chat.ad.photos?.[0]?.uri || "",
           adName: chat.ad.title,
         }
       );
