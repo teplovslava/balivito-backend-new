@@ -10,3 +10,15 @@ export const createUser = async (req, res) => {
   await user.save();
   res.status(201).json(user);
 };
+
+export const updatePushToken = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { token } = req.body;
+    await User.findByIdAndUpdate(userId, { expoPushToken: token });
+    res.json({ success: true });
+  } catch (e) {
+    console.error("Ошибка при обновлении push token:", e);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+};

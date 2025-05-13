@@ -27,7 +27,7 @@ app.use("/uploads", express.static(path.resolve("uploads")));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-app.use("/users", userRoutes);
+app.use("/user", userRoutes);
 app.use("/auth", authRoutes);
 app.use("/ads", userIdMiddleware, adRoutes);
 app.use("/favorites", userIdMiddleware, favoritesRoutes);

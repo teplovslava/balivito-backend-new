@@ -30,6 +30,12 @@ const UserSchema = new Schema({
       createdAt: { type: Date, default: Date.now },
     },
   ],
+  expoPushToken: {
+    type: String,
+    default: null,
+  },
 });
+
+UserSchema.index({ expoPushToken: 1 });
 
 export default model("User", UserSchema);
