@@ -117,7 +117,7 @@ export const sendMessage = async (
     const senderId = socket.userId;
 
     let chat = chatId
-      ? await Chat.findById(chatId).populate("ad", "title")
+      ? await Chat.findById(chatId).populate("ad", "title photos")
       : await Chat.findOne({
           ad: adId,
           participants: { $all: [senderId, recipientId], $size: 2 },
