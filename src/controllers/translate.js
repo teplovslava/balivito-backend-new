@@ -9,7 +9,7 @@ export const translate = async (req, res) => {
 
   try {
     const response = await axios.post(
-      "http://libretranslate:5000/translate",
+      "http://0.0.0.0:5000:5000/translate",
       {
         q: text,
         source: "auto",
