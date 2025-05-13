@@ -208,6 +208,7 @@ export const sendMessage = async (
     }
 
     const recipient = await User.findById(recipientId);
+    console.log(recipient?.expoPushToken);
     if (recipient?.expoPushToken) {
       await sendPushNotification(
         recipient.expoPushToken,
