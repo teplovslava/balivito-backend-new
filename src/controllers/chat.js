@@ -164,14 +164,11 @@ export const sendMessage = async (
       });
     }
 
-    const anotherUserId = chat.participants.find(
-      (id) => id.toString() !== senderId
-    );
     chat.lastMessage = { text: text || "[Изображения]", date: new Date() };
-    if (anotherUserId) {
+    if (recipientId) {
       chat.unreadCounts.set(
-        anotherUserId.toString(),
-        (chat.unreadCounts.get(anotherUserId.toString()) || 0) + 1
+        recipientId.toString(),
+        (chat.unreadCounts.get(recipientId.toString()) || 0) + 1
       );
     }
     await chat.save();
@@ -208,6 +205,9 @@ export const sendMessage = async (
     }
 
     const recipient = await User.findById(recipientId);
+    const companionName = recipient?.name || "Пользователь";
+
+    console.log(chat);
 
     if (recipient?.expoPushToken) {
       await sendPushNotification(
@@ -218,10 +218,7 @@ export const sendMessage = async (
           chatId: chat._id,
           adId,
           companionId: anotherUserId,
-          companionName: await chat.populate({
-            path: "participants",
-            select: "name",
-          }),
+          companionName: companionName,
           adPhoto: chat.ad.photos?.[0] || "",
           adName: chat.ad.title,
         }
