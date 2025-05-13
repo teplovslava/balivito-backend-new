@@ -30,6 +30,9 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
+  libretranslate:
+    image: libretranslate/libretranslate
+    restart: unless-stopped
 
 volumes:
   mongo-data:

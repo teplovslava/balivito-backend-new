@@ -207,8 +207,6 @@ export const sendMessage = async (
     const recipient = await User.findById(recipientId);
     const companionName = recipient?.name || "Пользователь";
 
-    console.log(chat, recipient);
-
     if (recipient?.expoPushToken) {
       await sendPushNotification(
         recipient.expoPushToken,
