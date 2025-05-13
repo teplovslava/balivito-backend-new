@@ -67,6 +67,8 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key:      ${{ secrets.SSH_KEY }}
           envs: PORT,SSH_HOST,MONGODB_URI,JWT_SECRET,JWT_REFRESH_SECRET,JWT_EXPIRES_IN,MAIL_ADDRESS,MAIL_PASSWORD,GHCR_PAT,GITHUB_ACTOR,DOCKERHUB_USERNAME,DOCKERHUB_PASSWORD
+          source: ./docker-compose.yml
+          target: /opt/stack/balivito-backend-new/
 
           script: |
             set -e
