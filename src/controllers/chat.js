@@ -7,6 +7,7 @@ import path from "path";
 import Chat from "../models/Chat.js";
 import Message from "../models/Message.js";
 import UploadedFile from "../models/UploadFile.js";
+import { sendPushNotification } from "../utils/sendPushNotification.js";
 
 const enrichChat = (chat, userId) => {
   const companion = chat.participants.find((p) => p._id.toString() !== userId);
@@ -203,6 +204,15 @@ export const sendMessage = async (
 
       io.to(`user:${senderId}`).emit("new_chat", senderChatDto);
       io.to(`user:${recipientId}`).emit("new_chat", companionChatDto);
+    }
+
+    const recipient = await User.findById(recipientId);
+    if (recipient?.expoPushToken) {
+      await sendPushNotification(
+        recipient.expoPushToken,
+        `${message.sender.name}: ${text}`,
+        "Новое сообщение"
+      );
     }
 
     callback({ success: true, newMessage, chatId: chat._id, isNewChat });
