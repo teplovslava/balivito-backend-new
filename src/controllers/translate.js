@@ -1,3 +1,5 @@
+import axios from "axios";
+
 export const translate = async (req, res) => {
   const { text, targetLang } = req.body;
 
