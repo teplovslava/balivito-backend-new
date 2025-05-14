@@ -455,9 +455,11 @@ export const editMessage = async (
 };
 
 export const typeMessage = (socket, io, { chatId, isTyping }) => {
-  socket.to(chatId.toString()).emit("typing", {
-    chatId,
-    userId: socket.userId,
-    isTyping,
-  });
+  if(chatId) {
+    socket.to(chatId.toString()).emit("typing", {
+      chatId,
+      userId: socket.userId,
+      isTyping,
+    });
+  }
 };
