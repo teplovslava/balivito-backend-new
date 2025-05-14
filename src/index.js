@@ -5,6 +5,8 @@ import app from "./app.js";
 import { connectDB } from "./config/db.js";
 import { socketAuth } from "./middlewares/socketAuth.js";
 import { socket as handleSocketConnection } from "./socket.js";
+import { ensureDefaultCategories } from "./scripts/category.js";
+import { ensureDefaultLocations } from "./scripts/locations.js";
 
 dotenv.config();
 
@@ -21,6 +23,8 @@ const io = new Server(server, {
 
 connectDB().then(() => {
   server.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+  ensureDefaultLocations()
+  ensureDefaultCategories()
 });
 
 io.use(socketAuth);
