@@ -1,16 +1,16 @@
+version: "3.9"
+
 services:
   api:
-    image: ghcr.io/teplovslava/balivito-backend-new:latest
-    env_file: .env
+    image: ghcr.io/teplovslava/balivito-backend-new:latest   # собранный CI‑образ
+    env_file: .env                                           # файл кладёт deploy‑job; на сервере рядом с compose
     ports:
-      - "${PORT}:${PORT}"
+      - "${PORT}:${PORT}"                                  # порт берётся из .env
     volumes:
       - uploads-data:/app/uploads 
     depends_on:
       mongo:
         condition: service_healthy
-      libretranslate:
-        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${PORT}/health"]
@@ -21,7 +21,7 @@ services:
   mongo:
     image: mongo:7
     ports:
-      - "127.0.0.1:27017:27017"
+      - "127.0.0.1:27017:27017"  
     volumes:
       - mongo-data:/data/db
     restart: unless-stopped
@@ -30,12 +30,6 @@ services:
       interval: 30s
       timeout: 5s
       retries: 5
-
-  libretranslate:
-    image: libretranslate/libretranslate:latest
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
 
 volumes:
   mongo-data:
