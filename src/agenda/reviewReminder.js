@@ -35,6 +35,7 @@ export default (agenda) => {
     if (alreadyLeftFeedback) return;
 
     const {systemChat, wasCreated} = await getSystemChatForUser(buyerId);
+    console.log(systemChat)
 
     // Проверка: уже было такое напоминание?
     const alreadySent = await Message.findOne({
