@@ -1,28 +1,30 @@
 // controllers/feedbackController.js
 import mongoose from "mongoose";
 import User from "../models/User.js";
+import Ad from "../models/Ad.js";
+import { getSystemChatForUser, SYSTEM_USER_ID } from "../utils/getSystemChat.js";
+import Message from "../models/Message.js";
 
 export const setFeedback = async (req, res) => {
   try {
     const authorId = req.userId;
     const targetId = req.params.id;
-    const { text, rating } = req.body;
+    const { text, rating, adId } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(targetId)) {
-      return res.status(400).json({ message: "Некорректный ID пользователя" });
+    if (!mongoose.Types.ObjectId.isValid(targetId) || !mongoose.Types.ObjectId.isValid(adId)) {
+      return res.status(400).json({ message: "Некорректный ID пользователя или объявления" });
     }
 
     if (authorId === targetId) {
-      return res
-        .status(400)
-        .json({ message: "Нельзя оставить отзыв самому себе" });
+      return res.status(400).json({ message: "Нельзя оставить отзыв самому себе" });
     }
 
     const targetUser = await User.findById(targetId);
     const authorUser = await User.findById(authorId);
+    const ad = await Ad.findById(adId).select("title photos");
 
-    if (!targetUser || !authorUser) {
-      return res.status(404).json({ message: "Пользователь не найден" });
+    if (!targetUser || !authorUser || !ad) {
+      return res.status(404).json({ message: "Пользователь или объявление не найдены" });
     }
 
     const newFeedback = {
@@ -32,18 +34,66 @@ export const setFeedback = async (req, res) => {
       },
       text,
       rating,
+      ad: adId,
       createdAt: new Date(),
     };
 
     targetUser.feedbacks.push(newFeedback);
 
-    // Пересчитываем среднюю оценку
     const avgRating =
       targetUser.feedbacks.reduce((acc, curr) => acc + Number(curr.rating), 0) /
       targetUser.feedbacks.length;
     targetUser.rating = Number(avgRating.toFixed(1));
 
     await targetUser.save();
+
+    // ⛔ не уведомляем, если отзыв адресован системному пользователю
+    if (targetId === SYSTEM_USER_ID) {
+      return res.status(201).json({ feedback: newFeedback, rating: targetUser.rating });
+    }
+
+    // ✅ проверка — оставлял ли уже продавец отзыв покупателю по этому объявлению
+    const sellerHasAlreadyLeftFeedback = authorUser.feedbacks?.some(
+      (fb) =>
+        fb.author._id.toString() === targetId &&
+        fb.ad?.toString() === adId
+    );
+
+    if (sellerHasAlreadyLeftFeedback) {
+      return res.status(201).json({ feedback: newFeedback, rating: targetUser.rating });
+    }
+
+    const systemChat = await getSystemChatForUser(targetId);
+
+    const alreadySent = await Message.findOne({
+      chatId: systemChat._id,
+      "action.meta.toUser._id": authorUser._id,
+      "action.meta.ad._id": ad._id,
+      "action.type": "leave_feedback",
+    });
+
+    if (!alreadySent) {
+      await Message.create({
+        chatId: systemChat._id,
+        sender: SYSTEM_USER_ID,
+        text: "Теперь вы можете оставить отзыв о покупателе",
+        action: {
+          type: "leave_feedback",
+          label: "Оставить отзыв",
+          meta: {
+            toUser: {
+              _id: authorUser._id,
+              name: authorUser.name,
+            },
+            ad: {
+              _id: ad._id,
+              title: ad.title,
+              photo: ad.photos?.[0] || null,
+            },
+          },
+        },
+      });
+    }
 
     res.status(201).json({ feedback: newFeedback, rating: targetUser.rating });
   } catch (err) {

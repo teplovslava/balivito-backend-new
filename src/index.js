@@ -5,8 +5,10 @@ import app from "./app.js";
 import { connectDB } from "./config/db.js";
 import { socketAuth } from "./middlewares/socketAuth.js";
 import { socket as handleSocketConnection } from "./socket.js";
-import { ensureDefaultCategories } from "./scripts/category.js";
-import { ensureDefaultLocations } from "./scripts/locations.js";
+import agenda from "./agenda/agendaInstance.js";
+import defineReviewReminder from "./agenda/reviewReminder.js";
+
+import { ensureSystemUser } from "./scripts/initSystemUser.js";
 
 dotenv.config();
 
@@ -21,10 +23,15 @@ const io = new Server(server, {
   transports: ["polling", "websocket"],
 });
 
-connectDB().then(() => {
-  server.listen(PORT, () => console.log(`Server started on port ${PORT}`));
-  ensureDefaultLocations()
-  ensureDefaultCategories()
+connectDB().then(async () => {
+  await agenda.start(); // запуск Agenda
+  defineReviewReminder(agenda); // регистрация задач
+
+  await ensureSystemUser();
+
+  server.listen(PORT, () =>
+    console.log(`🚀 Server started on port ${PORT}`)
+  );
 });
 
 io.use(socketAuth);
