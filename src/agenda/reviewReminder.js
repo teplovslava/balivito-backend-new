@@ -54,11 +54,6 @@ export default (agenda) => {
       sender: SYSTEM_USER_ID,
       text: "Пожалуйста, оставьте отзыв о продавце",
       mediaUrl: [],
-      lastMessage: {
-        text: "Пожалуйста, оставьте отзыв о продавце",
-        unreadCount: fullChat.unreadCounts?.get(buyerId.toString()) || 0,
-        date: new Date()
-      },
       action: {
         type: "leave_feedback",
         label: "Оставить отзыв",
@@ -76,6 +71,12 @@ export default (agenda) => {
       },
     });
 
+    systemChat.lastMessage = {
+      text: message.text,
+      date: message.createdAt,
+    };
+    await systemChat.save();
+
     // Готовим и отправляем событие о чате и сообщении через сокеты
     const chatDto = {
       _id: fullChat._id,
@@ -88,7 +89,7 @@ export default (agenda) => {
       ad: null,
       companion: {
         _id: SYSTEM_USER_ID,
-        name: SYSTEM_NAME,
+        name: seller.name,
       },
       isSystemChat: true
     };
@@ -114,7 +115,7 @@ export default (agenda) => {
           chatId: fullChat._id,
           adId: ad._id,
           companionId: SYSTEM_USER_ID,
-          companionName: SYSTEM_NAME,
+          companionName: seller.name,
           adPhoto:"",
           adName:"",
           isSystemChat: true

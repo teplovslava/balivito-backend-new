@@ -21,7 +21,7 @@ export async function ensureSystemUser() {
   const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
   const systemUser = await User.create({
-    name: "Система",
+    name: "Balivito",
     email: SYSTEM_EMAIL,
     password: hashedPassword,
     isVerified: true,
