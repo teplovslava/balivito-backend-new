@@ -9,6 +9,7 @@ import agenda from "./agenda/agendaInstance.js";
 import defineReviewReminder from "./agenda/reviewReminder.js";
 
 import { ensureSystemUser } from "./scripts/initSystemUser.js";
+import { setIo } from "./utils/ioHolder.js";
 
 dotenv.config();
 
@@ -22,6 +23,8 @@ const io = new Server(server, {
   },
   transports: ["polling", "websocket"],
 });
+
+setIo(io);
 
 connectDB().then(async () => {
   await agenda.start(); // запуск Agenda

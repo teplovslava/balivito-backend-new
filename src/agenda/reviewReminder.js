@@ -4,9 +4,9 @@ import Ad from "../models/Ad.js";
 import Message from "../models/Message.js";
 import { getSystemChatForUser } from '../utils/getSystemChat.js';
 import { getSystemUserId } from "../utils/getSystemUserId.js";
-import { io } from "../socket.js";
 import Chat from "../models/Chat.js";
 import { sendPushNotification } from "../utils/sendPushNotification.js"; // ← обязательно импорт
+import { getIo } from "../utils/ioHolder.js";
 
 export default (agenda) => {
   agenda.define("send review reminder to buyer", async (job) => {
@@ -81,8 +81,12 @@ export default (agenda) => {
       },
     };
 
-    io.in(`user:${buyerId}`).socketsJoin(fullChat._id.toString());
-    io.to(`user:${buyerId}`).emit("new_chat", chatDto);
+    const io = getIo();
+
+    if (io) {
+      io.in(`user:${buyerId}`).socketsJoin(fullChat._id.toString());
+      io.to(`user:${buyerId}`).emit("new_chat", chatDto);
+    }
 
     // ⏫ PUSH-уведомление (если есть expoPushToken)
     if (buyer?.expoPushToken) {
