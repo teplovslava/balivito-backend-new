@@ -2,7 +2,7 @@
 import User from "../models/User.js";
 import Ad from "../models/Ad.js";
 import Message from "../models/Message.js";
-import { SYSTEM_USER_ID, getSystemChatForUser } from "../utils/systemChat.js";
+import { SYSTEM_USER_ID, getSystemChatForUser } from '../utils/getSystemChat.js'
 
 export default (agenda) => {
   agenda.define("send review reminder to buyer", async (job) => {
