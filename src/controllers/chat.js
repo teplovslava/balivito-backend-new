@@ -210,11 +210,15 @@ export const sendMessage = async (
       io.to(`user:${senderId}`).emit("new_chat", senderChatDto);
       io.to(`user:${recipientId}`).emit("new_chat", companionChatDto);
 
+      console.log(888)
+
       await agenda.schedule("in 1 minute", "send review reminder to buyer", {
         buyerId: senderId,
         sellerId: recipientId,
         adId,
       });
+
+      console.log(999)
     }
 
     const recipient = await User.findById(recipientId);

@@ -7,6 +7,7 @@ import { SYSTEM_USER_ID, getSystemChatForUser } from '../utils/getSystemChat.js'
 export default (agenda) => {
   agenda.define("send review reminder to buyer", async (job) => {
     const { buyerId, sellerId, adId } = job.attrs.data;
+    console.log(123)
 
     if (!buyerId || !sellerId || !adId) return;
     if (sellerId === SYSTEM_USER_ID || buyerId === SYSTEM_USER_ID) return;
