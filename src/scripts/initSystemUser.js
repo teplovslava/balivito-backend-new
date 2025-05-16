@@ -1,46 +1,64 @@
+// 📁 scripts/initSystemUser.js
 import fs from "fs";
 import path from "path";
-import dotenv from "dotenv";
 import bcrypt from "bcrypt";
 import User from "../models/User.js";
 
-dotenv.config();
-
 export async function ensureSystemUser() {
-  const SYSTEM_USER_ID = process.env.SYSTEM_USER_ID;
+  const SYSTEM_EMAIL = "balivito@gmail.com";
+  const ENV_PATH = path.resolve(process.cwd(), ".env");
 
-  console.log(SYSTEM_USER_ID, SYSTEM_USER_ID?.length)
+  // 1. Проверка по email
+  const existing = await User.findOne({ email: SYSTEM_EMAIL });
+  if (existing) {
+    console.log("✅ Системный пользователь уже существует (по email):", existing._id);
 
-  if (SYSTEM_USER_ID && SYSTEM_USER_ID?.length === 24) {
-    const exists = await User.findById(SYSTEM_USER_ID);
-    if (exists) {
-      console.log("✅ Системный пользователь уже существует:", exists._id);
-      return;
+    // 🔁 Пытаемся записать в .env, если его ещё нет
+    try {
+      if (!fs.existsSync(ENV_PATH)) {
+        fs.writeFileSync(ENV_PATH, `SYSTEM_USER_ID=${existing._id}\n`, "utf-8");
+        console.log("📄 .env создан и SYSTEM_USER_ID добавлен");
+      } else {
+        const envContent = fs.readFileSync(ENV_PATH, "utf-8");
+        if (!envContent.includes("SYSTEM_USER_ID=")) {
+          fs.appendFileSync(ENV_PATH, `\nSYSTEM_USER_ID=${existing._id}\n`, "utf-8");
+          console.log("📄 SYSTEM_USER_ID добавлен в существующий .env");
+        }
+      }
+    } catch (err) {
+      console.warn("⚠️ Не удалось обновить .env:", err.message);
     }
+
+    return;
   }
 
+  // 2. Создание нового системного пользователя
   const rawPassword = "system_secret_" + Date.now();
   const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
   const systemUser = await User.create({
     name: "Система",
-    email: 'balivito@gmail.com',
+    email: SYSTEM_EMAIL,
     password: hashedPassword,
     isVerified: true,
   });
 
-  const newId = systemUser._id.toString();
-  console.log("✅ Создан системный пользователь:", newId);
-  console.log("🔐 Пароль (только для отладки):", rawPassword);
+  console.log("✅ Создан системный пользователь:", systemUser._id);
+  console.log("🔐 Пароль (отладка):", rawPassword);
 
-  const envPath = path.resolve(process.cwd(), ".env");
-  const envContent = fs.readFileSync(envPath, "utf-8");
-
-  const updated = envContent.includes("SYSTEM_USER_ID=")
-    ? envContent.replace(/SYSTEM_USER_ID=.*/g, `SYSTEM_USER_ID=${newId}`)
-    : envContent + `\nSYSTEM_USER_ID=${newId}`;
-
-  fs.writeFileSync(envPath, updated, "utf-8");
-
-  console.log("📦 .env обновлён: SYSTEM_USER_ID=" + newId);
+  // 3. Добавляем SYSTEM_USER_ID в .env
+  try {
+    if (!fs.existsSync(ENV_PATH)) {
+      fs.writeFileSync(ENV_PATH, `SYSTEM_USER_ID=${systemUser._id}\n`, "utf-8");
+      console.log("📄 .env создан с SYSTEM_USER_ID");
+    } else {
+      const envContent = fs.readFileSync(ENV_PATH, "utf-8");
+      if (!envContent.includes("SYSTEM_USER_ID=")) {
+        fs.appendFileSync(ENV_PATH, `\nSYSTEM_USER_ID=${systemUser._id}\n`, "utf-8");
+        console.log("📄 SYSTEM_USER_ID добавлен в существующий .env");
+      }
+    }
+  } catch (err) {
+    console.warn("⚠️ Не удалось обновить .env:", err.message);
+  }
 }
