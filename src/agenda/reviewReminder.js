@@ -14,6 +14,8 @@ export default (agenda) => {
     const SYSTEM_USER_ID = getSystemUserId();
     const { buyerId, sellerId, adId } = job.attrs.data;
 
+    console.log(333)
+
     if (!buyerId || !sellerId || !adId) return;
     if (sellerId === SYSTEM_USER_ID || buyerId === SYSTEM_USER_ID) return;
 
@@ -98,8 +100,10 @@ export default (agenda) => {
       }
     }
 
+
     // ⏫ PUSH-уведомление (если есть expoPushToken)
     if (buyer?.expoPushToken) {
+      console.log(444)
       await sendPushNotification(
         buyer.expoPushToken,
         "Пожалуйста, оставьте отзыв о продавце",
