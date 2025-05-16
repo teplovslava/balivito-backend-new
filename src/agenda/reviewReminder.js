@@ -85,6 +85,7 @@ export default (agenda) => {
         _id: SYSTEM_USER_ID,
         name: SYSTEM_NAME,
       },
+      isSystemChat: true
     };
 
     const io = getIo();
@@ -109,6 +110,7 @@ export default (agenda) => {
           companionName: SYSTEM_NAME,
           adPhoto:"",
           adName:"",
+          isSystemChat: true
         }
       );
     }
