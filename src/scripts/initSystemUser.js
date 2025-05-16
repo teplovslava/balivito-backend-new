@@ -9,9 +9,9 @@ dotenv.config();
 export async function ensureSystemUser() {
   const SYSTEM_USER_ID = process.env.SYSTEM_USER_ID;
 
-  console.log(SYSTEM_USER_ID, SYSTEM_USER_ID.length)
+  console.log(SYSTEM_USER_ID, SYSTEM_USER_ID?.length)
 
-  if (SYSTEM_USER_ID && SYSTEM_USER_ID.length === 24) {
+  if (SYSTEM_USER_ID && SYSTEM_USER_ID?.length === 24) {
     const exists = await User.findById(SYSTEM_USER_ID);
     if (exists) {
       console.log("✅ Системный пользователь уже существует:", exists._id);
