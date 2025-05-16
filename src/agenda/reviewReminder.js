@@ -30,7 +30,7 @@ export default (agenda) => {
     );
     if (alreadyLeftFeedback) return;
 
-    const systemChat = await getSystemChatForUser(buyerId);
+    const {systemChat, wasCreated} = await getSystemChatForUser(buyerId);
 
     // Проверка: уже было такое напоминание?
     const alreadySent = await Message.findOne({
@@ -85,7 +85,9 @@ export default (agenda) => {
 
     if (io) {
       io.in(`user:${buyerId}`).socketsJoin(fullChat._id.toString());
-      io.to(`user:${buyerId}`).emit("new_chat", chatDto);
+      if(wasCreated) {
+        io.to(`user:${buyerId}`).emit("new_chat", chatDto);
+      }
     }
 
     // ⏫ PUSH-уведомление (если есть expoPushToken)
