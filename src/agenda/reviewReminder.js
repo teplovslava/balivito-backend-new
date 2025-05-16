@@ -10,6 +10,7 @@ import { getIo } from "../utils/ioHolder.js";
 
 export default (agenda) => {
   agenda.define("send review reminder to buyer", async (job) => {
+    const SYSTEM_NAME='Balivito';
     const SYSTEM_USER_ID = getSystemUserId();
     const { buyerId, sellerId, adId } = job.attrs.data;
 
@@ -41,12 +42,18 @@ export default (agenda) => {
     });
     if (alreadySent) return;
 
+    const fullChat = await Chat.findById(systemChat._id).populate({ path: 'participants', select: 'name email' });
+
     // Создаём системное сообщение
     const message = await Message.create({
       chatId: systemChat._id,
       sender: SYSTEM_USER_ID,
       text: "Пожалуйста, оставьте отзыв о продавце",
       mediaUrl: [],
+      lastMessage: {
+        text: "Пожалуйста, оставьте отзыв о продавце",
+        unreadCount: fullChat.unreadCounts?.get(buyerId.toString()) || 0,
+      },
       action: {
         type: "leave_feedback",
         label: "Оставить отзыв",
@@ -65,7 +72,6 @@ export default (agenda) => {
     });
 
     // Готовим и отправляем событие о чате и сообщении через сокеты
-    const fullChat = await Chat.findById(systemChat._id).populate({ path: 'participants', select: 'name email' });
     const chatDto = {
       _id: fullChat._id,
       updatedAt: fullChat.updatedAt,
@@ -77,7 +83,7 @@ export default (agenda) => {
       ad: null,
       companion: {
         _id: SYSTEM_USER_ID,
-        name: 'Система',
+        name: SYSTEM_NAME,
       },
     };
 
@@ -100,7 +106,7 @@ export default (agenda) => {
           chatId: fullChat._id,
           adId: ad._id,
           companionId: SYSTEM_USER_ID,
-          companionName: "Система",
+          companionName: SYSTEM_NAME,
           adPhoto:"",
           adName:"",
         }
