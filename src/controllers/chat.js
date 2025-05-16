@@ -10,12 +10,7 @@ import UploadedFile from "../models/UploadFile.js";
 import User from "../models/User.js";
 import { sendPushNotification } from "../utils/sendPushNotification.js";
 import agenda from "../agenda/agendaInstance.js";
-
-
-const SYSTEM_USER_ID = process.env.SYSTEM_USER_ID;
-
-console.log(SYSTEM_USER_ID,1111)
-
+import { getSystemUserId } from "../utils/getSystemUserId.js";
 
 const enrichChat = (chat, userId) => {
   const companion = chat.participants.find((p) => p._id.toString() !== userId);
@@ -196,6 +191,8 @@ export const sendMessage = async (
 
     io.to(chat._id.toString()).emit("new_message", newMessage);
 
+    const SYSTEM_USER_ID = getSystemUserId();
+
     if (isNewChat &&
       senderId.toString() !== SYSTEM_USER_ID &&
       recipientId.toString() !== SYSTEM_USER_ID) {
@@ -212,15 +209,11 @@ export const sendMessage = async (
       io.to(`user:${senderId}`).emit("new_chat", senderChatDto);
       io.to(`user:${recipientId}`).emit("new_chat", companionChatDto);
 
-      console.log(888)
-
       await agenda.schedule("in 1 minute", "send review reminder to buyer", {
         buyerId: senderId,
         sellerId: recipientId,
         adId,
       });
-
-      console.log(999)
     }
 
     const recipient = await User.findById(recipientId);
