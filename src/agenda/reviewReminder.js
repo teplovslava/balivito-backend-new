@@ -2,12 +2,13 @@
 import User from "../models/User.js";
 import Ad from "../models/Ad.js";
 import Message from "../models/Message.js";
-import { SYSTEM_USER_ID, getSystemChatForUser } from '../utils/getSystemChat.js'
+import { getSystemChatForUser } from '../utils/getSystemChat.js'
+import { getSystemUserId } from "../utils/getSystemUserId.js";
 
 export default (agenda) => {
   agenda.define("send review reminder to buyer", async (job) => {
+    const SYSTEM_USER_ID = getSystemUserId();
     const { buyerId, sellerId, adId } = job.attrs.data;
-    console.log(123)
 
     if (!buyerId || !sellerId || !adId) return;
     if (sellerId === SYSTEM_USER_ID || buyerId === SYSTEM_USER_ID) return;

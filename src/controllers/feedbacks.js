@@ -2,10 +2,12 @@
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import Ad from "../models/Ad.js";
-import { getSystemChatForUser, SYSTEM_USER_ID } from "../utils/getSystemChat.js";
+import { getSystemChatForUser } from "../utils/getSystemChat.js";
 import Message from "../models/Message.js";
+import { getSystemUserId } from "../utils/getSystemUserId.js";
 
 export const setFeedback = async (req, res) => {
+  const SYSTEM_USER_ID = getSystemUserId();
   try {
     const authorId = req.userId;
     const targetId = req.params.id;
