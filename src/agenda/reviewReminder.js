@@ -10,7 +10,8 @@ import { getIo } from "../utils/ioHolder.js";
 
 export default (agenda) => {
   agenda.define("send review reminder to buyer", async (job) => {
-    const SYSTEM_NAME='Balivito';
+    try {
+    const SYSTEM_NAME='BALIVITO';
     const SYSTEM_USER_ID = getSystemUserId();
     const { buyerId, sellerId, adId } = job.attrs.data;
 
@@ -121,5 +122,9 @@ export default (agenda) => {
     }
 
     console.log(`✅ Отправлено напоминание покупателю ${buyerId}`);
+    }
+    catch(e) {
+      console.log(e)
+    }
   });
 };
