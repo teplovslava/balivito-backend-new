@@ -4,7 +4,7 @@ import { getSystemUserId } from "./getSystemUserId.js";
 export async function getSystemChatForUser(userId) {
   const SYSTEM_USER_ID = getSystemUserId();
 
-  let systemChat = await systemChat.findOne({
+  let systemChat = await Chat.findOne({
     participants: { $all: [SYSTEM_USER_ID, userId], $size: 2 },
   });
 
