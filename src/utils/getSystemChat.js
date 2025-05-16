@@ -1,5 +1,8 @@
 import Chat from "../models/Chat.js";
 
+import dotenv from "dotenv";
+dotenv.config(); 
+
 export const SYSTEM_USER_ID = process.env.SYSTEM_USER_ID;
 
 export async function getSystemChatForUser(userId) {

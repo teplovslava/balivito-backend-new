@@ -14,6 +14,8 @@ import agenda from "../agenda/agendaInstance.js";
 
 const SYSTEM_USER_ID = process.env.SYSTEM_USER_ID;
 
+console.log(SYSTEM_USER_ID,1111)
+
 
 const enrichChat = (chat, userId) => {
   const companion = chat.participants.find((p) => p._id.toString() !== userId);
