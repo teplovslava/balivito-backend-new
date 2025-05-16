@@ -22,7 +22,7 @@ export async function ensureSystemUser() {
 
   const systemUser = await User.create({
     name: "Система",
-    email: '',
+    email: 'balivito@gmail.com',
     password: hashedPassword,
     isVerified: true,
   });
