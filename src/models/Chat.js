@@ -2,10 +2,16 @@ import { Schema, model } from "mongoose";
 
 const chatSchema = new Schema(
   {
+    isSystemChat: {
+      type: Boolean,
+      default: false,
+    },
     ad: {
       type: Schema.Types.ObjectId,
       ref: "Ad",
-      required: true,
+      required: function () {
+        return !this.isSystemChat;
+      },
     },
     participants: [
       {

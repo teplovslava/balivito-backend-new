@@ -10,6 +10,7 @@ export async function getSystemChatForUser(userId) {
   if (chat) return chat;
 
   return Chat.create({
+    isSystemChat: true,
     participants: [SYSTEM_USER_ID, userId],
     unreadCounts: { [userId.toString()]: 0 },
   });
