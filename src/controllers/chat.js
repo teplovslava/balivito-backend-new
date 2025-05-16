@@ -19,6 +19,7 @@ const enrichChat = (chat, userId) => {
   return {
     _id: chat._id,
     updatedAt: chat.updatedAt,
+    isSystemChat:chat.isSystemChat,
     lastMessage: {
       text: chat.lastMessage?.text || "",
       date: chat.lastMessage?.date || null,

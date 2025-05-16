@@ -53,6 +53,7 @@ export default (agenda) => {
       lastMessage: {
         text: "Пожалуйста, оставьте отзыв о продавце",
         unreadCount: fullChat.unreadCounts?.get(buyerId.toString()) || 0,
+        date: new Date()
       },
       action: {
         type: "leave_feedback",
