@@ -2,8 +2,11 @@
 import User from "../models/User.js";
 import Ad from "../models/Ad.js";
 import Message from "../models/Message.js";
-import { getSystemChatForUser } from '../utils/getSystemChat.js'
+import { getSystemChatForUser } from '../utils/getSystemChat.js';
 import { getSystemUserId } from "../utils/getSystemUserId.js";
+import { io } from "../socket.js";
+import Chat from "../models/Chat.js";
+import { sendPushNotification } from "../utils/sendPushNotification.js"; // ← обязательно импорт
 
 export default (agenda) => {
   agenda.define("send review reminder to buyer", async (job) => {
@@ -19,30 +22,31 @@ export default (agenda) => {
 
     if (!buyer || !seller || !ad) return;
 
-    // проверка: оставил ли покупатель уже отзыв продавцу по этому объявлению
+    // Проверяем, оставил ли покупатель уже отзыв по этому объявлению
     const alreadyLeftFeedback = seller.feedbacks?.some(
       (fb) =>
         fb.author._id.toString() === buyerId.toString() &&
         fb.ad?.toString() === adId
     );
-
     if (alreadyLeftFeedback) return;
 
     const systemChat = await getSystemChatForUser(buyerId);
 
+    // Проверка: уже было такое напоминание?
     const alreadySent = await Message.findOne({
       chatId: systemChat._id,
       "action.meta.toUser._id": seller._id,
       "action.meta.ad._id": ad._id,
       "action.type": "leave_feedback",
     });
-
     if (alreadySent) return;
 
-    await Message.create({
+    // Создаём системное сообщение
+    const message = await Message.create({
       chatId: systemChat._id,
       sender: SYSTEM_USER_ID,
       text: "Пожалуйста, оставьте отзыв о продавце",
+      mediaUrl: [],
       action: {
         type: "leave_feedback",
         label: "Оставить отзыв",
@@ -59,6 +63,43 @@ export default (agenda) => {
         },
       },
     });
+
+    // Готовим и отправляем событие о чате и сообщении через сокеты
+    const fullChat = await Chat.findById(systemChat._id).populate({ path: 'participants', select: 'name email' });
+    const chatDto = {
+      _id: fullChat._id,
+      updatedAt: fullChat.updatedAt,
+      lastMessage: {
+        text: message.text,
+        date: message.createdAt,
+        unreadCount: fullChat.unreadCounts?.get(buyerId.toString()) || 0,
+      },
+      ad: null,
+      companion: {
+        _id: SYSTEM_USER_ID,
+        name: 'Система',
+      },
+    };
+
+    io.in(`user:${buyerId}`).socketsJoin(fullChat._id.toString());
+    io.to(`user:${buyerId}`).emit("new_chat", chatDto);
+
+    // ⏫ PUSH-уведомление (если есть expoPushToken)
+    if (buyer?.expoPushToken) {
+      await sendPushNotification(
+        buyer.expoPushToken,
+        "Пожалуйста, оставьте отзыв о продавце",
+        "Системное сообщение",
+        {
+          chatId: fullChat._id,
+          adId: ad._id,
+          companionId: SYSTEM_USER_ID,
+          companionName: "Система",
+          adPhoto:"",
+          adName:"",
+        }
+      );
+    }
 
     console.log(`✅ Отправлено напоминание покупателю ${buyerId}`);
   });
