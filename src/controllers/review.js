@@ -68,7 +68,7 @@ export const addReview = async (req, res) => {
         targetId: targetId,
         text    : `${author.name} оставил вам отзыв`,
         action  : {
-          type : 'invite_reply_root',
+          type : 'invite_leave_root',
           label: 'Ответить',
           meta : { parentId: review._id, authorId },   // ← тут оба id
         },
