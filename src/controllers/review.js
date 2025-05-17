@@ -70,7 +70,17 @@ export const addReview = async (req, res) => {
         action  : {
           type : 'invite_leave_root',
           label: 'Ответить',
-          meta : { parentId: review._id, authorId },   // ← тут оба id
+          meta : {         
+            toUser: {                     // ← то, что ждёт фронт
+              _id : author._id,
+              name: author.name,
+            },
+            ad: {                         // ← и информация об объявлении
+              _id  : ad._id,
+              title: ad.title,
+              photo: ad.photos?.[0] ?? null,
+            }, 
+          },
         },
       });
     }
