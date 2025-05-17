@@ -35,9 +35,24 @@ export async function sendSystemInvite({
   /* 3. sockets */
   const io = getIo();
   if (io) {
-    io.in(`user:${targetId}`).socketsJoin(chat._id.toString());
+    const chatDto = {
+      _id: chat._id,
+      updatedAt: chat.updatedAt,
+      lastMessage: {
+        text,
+        date: chat.lastMessage.date,
+        unreadCount: chat.unreadCounts.get(targetId.toString()) || 0,
+      },
+      ad: null,
+      companion: { _id: SYSTEM_USER_ID, name: SYSTEM_NAME },
+      isSystemChat: true,
+    };
 
-    io.to(chat._id.toString()).emit('new_message', {
+    io.in(`user:${targetId}`).socketsJoin(chat._id.toString());
+    if (wasCreated) {
+      io.to(`user:${targetId}`).emit('new_chat', chatDto);
+    } else {
+      io.to(chat._id.toString()).emit('new_message', {
       chatId   : chat._id,
       messageId: msg._id,
       sender   : { _id: SYSTEM_USER_ID, name: SYSTEM_NAME },
@@ -48,6 +63,7 @@ export async function sendSystemInvite({
       isChanged: false,
       action,
     });
+    }
   }
 
   /* 4. push */
