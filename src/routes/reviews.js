@@ -3,7 +3,7 @@ import { requireAuthorizedUser } from '../middlewares/auth.js';
 
 import {
   addReview,            // POST   – добавить отзыв
-  replyToReview,        // POST   – ответить на отзыв (опц.)
+  replyReview,        // POST   – ответить на отзыв (опц.)
   listReviews,          // GET    – список отзывов пользователя
   deleteReview,         // DELETE – удалить свой отзыв
 } from '../controllers/review.js';
@@ -25,7 +25,7 @@ router.get('/:targetId', listReviews);
 router.post(
   '/:targetId/:reviewId/reply',
   requireAuthorizedUser,
-  replyToReview
+  replyReview
 );
 
 // удалить собственный отзыв
