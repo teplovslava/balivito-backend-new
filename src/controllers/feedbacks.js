@@ -78,7 +78,7 @@ export const setFeedback = async (req, res) => {
       await Message.create({
         chatId: systemChat._id,
         sender: SYSTEM_USER_ID,
-        text: "Теперь вы можете оставить отзыв о покупателе",
+        text: `${targetUser.name} оставил отзыв о Вас`,
         action: {
           type: "leave_feedback",
           label: "Оставить отзыв",
