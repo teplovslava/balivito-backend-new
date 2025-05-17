@@ -24,7 +24,7 @@ router.get('/:targetId', listReviews);
 
 // ответ на отзыв (если нужно)
 router.post(
-  '/:targetId/:reviewId/reply',
+  '/:parentId/reply',            // ← только parentId
   requireAuthorizedUser,
   replyReview
 );
