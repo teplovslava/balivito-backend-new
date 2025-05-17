@@ -1,136 +1,14 @@
-// 📁 controllers/reviewController.js
 import Review  from '../models/Review.js';
 import User    from '../models/User.js';
 import Ad      from '../models/Ad.js';
-import Message from '../models/Message.js';
 
-import { getSystemChatForUser } from '../utils/getSystemChat.js';
-import { getSystemUserId      } from '../utils/getSystemUserId.js';
-import { getIo                } from '../utils/ioHolder.js';
-import { sendPushNotification } from '../utils/sendPushNotification.js';
-import { buildChatPayload     } from '../utils/buildChatNotificationPayload.js';
+import { getSystemChatForUser }  from '../utils/getSystemChat.js';
+import { sendSystemInvite      } from '../utils/sendSystemInvite.js';
+import { updateInviteAsDone    } from '../utils/updateInviteAsDone.js';
 
-/* ---------------------------------------------------------- *
- * helpers                                                    *
- * ---------------------------------------------------------- */
-
-/** отправляем систем-сообщение адресату (invite «Оставить отзыв» / «Ответить»). */
-async function notifyTarget({ target, author, ad, text }) {
-  const SYSTEM_USER_ID = getSystemUserId();
-  const SYSTEM_NAME    = 'BALIVITO';
-
-  const { systemChat, wasCreated } = await getSystemChatForUser(target._id);
-
-  /* создаём системное сообщение-приглашение */
-  await Message.create({
-    chatId : systemChat._id,
-    sender : SYSTEM_USER_ID,
-    text,
-    mediaUrl: [],
-    action : {
-      type : 'leave_feedback',
-      label: 'Ответить',
-      meta : { toUser: { _id: author._id, name: author.name }, ad },
-    },
-  });
-
-  /* refresh lastMessage / unreadCounts */
-  systemChat.lastMessage = { text, date: new Date() };
-  systemChat.unreadCounts.set(
-    target._id.toString(),
-    (systemChat.unreadCounts.get(target._id.toString()) || 0) + 1,
-  );
-  await systemChat.save();
-
-  /* ── сокеты ───────────────────────────────────────────── */
-  const io = getIo();
-  if (io) {
-    const chatDto = {
-      _id: systemChat._id,
-      updatedAt: systemChat.updatedAt,
-      lastMessage: {
-        text,
-        date: systemChat.lastMessage.date,
-        unreadCount: systemChat.unreadCounts.get(target._id.toString()) || 0,
-      },
-      ad: null,
-      companion: { _id: SYSTEM_USER_ID, name: SYSTEM_NAME },
-      isSystemChat: true,
-    };
-
-    io.in(`user:${target._id}`).socketsJoin(systemChat._id.toString());
-    if (wasCreated) {
-      io.to(`user:${target._id}`).emit('new_chat', chatDto);
-    } else {
-      io.to(systemChat._id.toString()).emit('new_message', {
-        chatId   : systemChat._id,
-        sender   : { _id: SYSTEM_USER_ID, name: SYSTEM_NAME },
-        text,
-        mediaUrl : [],
-        createdAt: systemChat.lastMessage.date,
-        isRead   : false,
-        isChanged: false,
-      });
-    }
-  }
-
-  /* ── push ─────────────────────────────────────────────── */
-  if (target.expoPushToken) {
-    await sendPushNotification(
-      target.expoPushToken,
-      text,
-      'Системное сообщение',
-      buildChatPayload({
-        chatId: systemChat._id,
-        ad,
-        companionId  : SYSTEM_USER_ID,
-        companionName: SYSTEM_NAME,
-        isSystemChat : true,
-      }),
-    );
-  }
-}
-
-/** меняем уже отправленное «приглашение» на подтверждение, когда отзыв оставлен */
-async function markRequestAsCompleted({ author, target, ad, text, rating }) {
-  const SYSTEM_USER_ID = getSystemUserId();
-  const SYSTEM_NAME    = 'BALIVITO';
-
-  const { systemChat } = await getSystemChatForUser(author._id);
-
-  const msg = await Message.findOne({
-    chatId: systemChat._id,
-    'action.type'           : 'leave_feedback',
-    'action.meta.toUser._id': target._id,
-    'action.meta.ad._id'    : ad._id,
-  });
-  if (!msg) return;                               // приглашения не было
-
-  /* обновляем текст и обнуляем action */
-  msg.text   = `Вы оставили отзыв продавцу ${target.name}: «${text}» — ${rating}★`;
-  msg.action = null;
-  await msg.save();
-
-  /* lastMessage, чтобы список чатов обновился */
-  systemChat.lastMessage = { text: msg.text, date: new Date() };
-  await systemChat.save();
-
-  /* оповещаем только автора */
-  const io = getIo();
-  if (io) {
-    io.to(`user:${author._id}`).emit('message_updated', {
-      chatId    : systemChat._id,
-      messageId : msg._id,
-      text      : msg.text,
-      mediaUrl  : msg.mediaUrl,
-      action    : null,
-    });
-  }
-}
-
-/* ---------------------------------------------------------- *
- * 1. Добавить корневой отзыв                                 *
- * ---------------------------------------------------------- */
+/* ══════════════════════════════════════════════════════════════ */
+/* 1.  ДОБАВИТЬ КОРНЕВОЙ ОТЗЫВ  –  POST /reviews/:targetId        */
+/* ══════════════════════════════════════════════════════════════ */
 export const addReview = async (req, res) => {
   try {
     const authorId = req.userId;
@@ -140,11 +18,14 @@ export const addReview = async (req, res) => {
     if (!authorId || authorId === targetId)
       return res.status(400).json({ message: 'Некорректные параметры' });
 
-    const duplicate = await Review.exists({ author: authorId, target: targetId, ad: adId, parent: null });
+    /* — проверяем дубликат — */
+    const duplicate = await Review.exists({
+      author: authorId, target: targetId, ad: adId, parent: null,
+    });
     if (duplicate)
       return res.status(409).json({ message: 'Вы уже оставляли отзыв по этому объявлению' });
 
-    /* сущности */
+    /* — сущности — */
     const [author, target, ad] = await Promise.all([
       User.findById(authorId),
       User.findById(targetId),
@@ -153,35 +34,45 @@ export const addReview = async (req, res) => {
     if (!author || !target || !ad)
       return res.status(404).json({ message: 'Данные не найдены' });
 
-    /* создаём отзыв */
+    /* — создаём отзыв — */
     const review = await Review.create({
       author: authorId, target: targetId, ad: adId,
       text, rating, parent: null,
     });
 
-    /* ─── пересчёт рейтинга И количества ─── */
+    /* — рейтинг + счётчик — */
     const [agg] = await Review.aggregate([
       { $match: { target: target._id, parent: null } },
-      {
-        $group: {
-          _id : null,
-          avg : { $avg: '$rating' },
-          cnt : { $sum: 1 },
-        },
-      },
+      { $group: { _id: null, avg: { $avg: '$rating' }, cnt: { $sum: 1 } } },
     ]);
-
     target.rating       = +(agg?.avg?.toFixed(1) || 0);
     target.reviewsCount = agg?.cnt || 1;
     await target.save();
 
-    /* обновляем систем-чат */
-    await markRequestAsCompleted({ author, target, ad, text, rating });
+    /* — гасим “приглашение оставить отзыв”, если было — */
+    const { systemChat: authorChat } = await getSystemChatForUser(authorId);
+    await updateInviteAsDone({
+      chat  : authorChat,
+      filter: { 'action.type': 'invite_leave_root', 'action.meta.ad._id': ad._id },
+      newText: `Вы оставили отзыв продавцу ${target.name}: «${text}» — ${rating}★`,
+    });
 
-    /* приглашаем target только если встречного отзыва нет */
-    const reciprocalExists = await Review.exists({ author: targetId, target: authorId, ad: adId, parent: null });
-    if (!reciprocalExists) {
-      await notifyTarget({ target, author, ad, text: `${author.name} оставил вам отзыв` });
+    /* — отправляем приглашение target-у, если он ещё не ответил — */
+    const reciprocal = await Review.exists({
+      author: targetId, target: authorId, ad: adId, parent: null,
+    });
+    if (!reciprocal) {
+      const { systemChat } = await getSystemChatForUser(targetId);
+      await sendSystemInvite({
+        chat    : systemChat,
+        targetId: targetId,
+        text    : `${author.name} оставил вам отзыв`,
+        action  : {
+          type : 'invite_reply_root',
+          label: 'Ответить',
+          meta : { parentId: review._id, authorId },   // ← тут оба id
+        },
+      });
     }
 
     return res.status(201).json(review);
@@ -191,12 +82,12 @@ export const addReview = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------- *
- * 2. Ответ на отзыв / ответ на ответ                         *
- * ---------------------------------------------------------- */
+
+/* ══════════════════════════════════════════════════════════════ */
+/* 2.  ОТВЕТ НА ОТЗЫВ  –  POST /reviews/:parentId/reply           */
+/* ══════════════════════════════════════════════════════════════ */
 export const replyReview = async (req, res) => {
   try {
-    const SYSTEM_USER_ID = getSystemUserId();
     const authorId = req.userId;
     const parentId = req.params.parentId;
     const { text } = req.body;
@@ -211,6 +102,7 @@ export const replyReview = async (req, res) => {
     )
       return res.status(403).json({ message: 'Нет прав' });
 
+    /* — создаём ответ — */
     const answer = await Review.create({
       author : authorId,
       target : parent.author.toString() === authorId ? parent.target : parent.author,
@@ -225,11 +117,25 @@ export const replyReview = async (req, res) => {
       User.findById(answer.target),
     ]);
 
-    await notifyTarget({
-      target,
-      author,
-      ad: parent.ad,
-      text: `${author.name} ответил(а) на ваш отзыв`,
+    /* — гасим своё приглашение “ответить” — */
+    const { systemChat: authorChat } = await getSystemChatForUser(authorId);
+    await updateInviteAsDone({
+      chat  : authorChat,
+      filter: { 'action.type': 'invite_reply_root', 'action.meta.parentId': parentId },
+      newText: `Вы ответили пользователю ${target.name}: «${text}»`,
+    });
+
+    /* — новое приглашение адресату — */
+    const { systemChat } = await getSystemChatForUser(target._id);
+    await sendSystemInvite({
+      chat    : systemChat,
+      targetId: target._id,
+      text    : `${author.name} ответил(а) на ваш отзыв`,
+      action  : {
+        type : 'invite_reply_reply',
+        label: 'Ответить',
+        meta : { parentId, authorId },            // ← оба id
+      },
     });
 
     return res.status(201).json(answer);
