@@ -1,46 +1,49 @@
-// controllers/feedbackController.js
 import mongoose from "mongoose";
-import User from "../models/User.js";
-import Ad from "../models/Ad.js";
+import User      from "../models/User.js";
+import Ad        from "../models/Ad.js";
+import Message   from "../models/Message.js";
+
 import { getSystemChatForUser } from "../utils/getSystemChat.js";
-import Message from "../models/Message.js";
-import { getSystemUserId } from "../utils/getSystemUserId.js";
-import { getIo } from "../utils/ioHolder.js";
+import { getSystemUserId      } from "../utils/getSystemUserId.js";
+import { getIo                } from "../utils/ioHolder.js";
 import { sendPushNotification } from "../utils/sendPushNotification.js";
 
+
+
+/* ────────────────────────────────────────────────────────────── */
+/*  POST /feedbacks/:id   — добавить отзыв                         */
+/* ────────────────────────────────────────────────────────────── */
 export const setFeedback = async (req, res) => {
   const SYSTEM_USER_ID = getSystemUserId();
   const SYSTEM_NAME    = "BALIVITO";
 
   try {
-    const authorId = req.userId;           // покупатель-/продавец, кто пишет отзыв
-    const targetId = req.params.id;        // кому адресован отзыв
+    const authorId = req.userId;            // кто пишет отзыв
+    const targetId = req.params.id;         // кому адресован
     const { text, rating, adId } = req.body;
 
-    /* ─────────── базовые проверки ─────────── */
+    /* 1. валидация ───────────────────────────────────────────── */
     if (
       !mongoose.Types.ObjectId.isValid(targetId) ||
       !mongoose.Types.ObjectId.isValid(adId)
     ) {
-      return res
-        .status(400)
-        .json({ message: "Некорректный ID пользователя или объявления" });
+      return res.status(400).json({ message: "Некорректный ID пользователя или объявления" });
+    }
+    if (authorId === targetId) {
+      return res.status(400).json({ message: "Нельзя оставить отзыв самому себе" });
     }
 
-    if (authorId === targetId)
-      return res.status(400).json({ message: "Нельзя оставить отзыв самому себе" });
-
-    /* ─────────── сущности ─────────── */
+    /* 2. получаем сущности ──────────────────────────────────── */
     const [targetUser, authorUser, ad] = await Promise.all([
       User.findById(targetId),
       User.findById(authorId),
       Ad.findById(adId).select("title photos"),
     ]);
-
-    if (!targetUser || !authorUser || !ad)
+    if (!targetUser || !authorUser || !ad) {
       return res.status(404).json({ message: "Пользователь или объявление не найдены" });
+    }
 
-    /* ─────────── сохраняем отзыв ─────────── */
+    /* 3. сохраняем отзыв + пересчитываем рейтинг ────────────── */
     const newFeedback = {
       author: { _id: authorUser._id, name: authorUser.name },
       text,
@@ -48,7 +51,6 @@ export const setFeedback = async (req, res) => {
       ad: adId,
       createdAt: new Date(),
     };
-
     targetUser.feedbacks.push(newFeedback);
     targetUser.rating =
       Number(
@@ -59,20 +61,33 @@ export const setFeedback = async (req, res) => {
       );
     await targetUser.save();
 
-    /* ─────────── системный пользователь? ─────────── */
-    if (targetId === SYSTEM_USER_ID)
+    /* 4. стоп-кран №1: системный пользователь ───────────────── */
+    if (targetId === SYSTEM_USER_ID) {
       return res.status(201).json({ feedback: newFeedback, rating: targetUser.rating });
+    }
 
-    /* ─────────── создаём/ищем системный чат ─────────── */
+    /* 5. стоп-кран №2: обе стороны уже обменялись отзывами? ─── */
+    const reciprocalExists = authorUser.feedbacks?.some(
+      fb => fb.author._id.toString() === targetId && fb.ad?.toString() === adId
+    );
+    if (reciprocalExists) {
+      return res.status(201).json({ feedback: newFeedback, rating: targetUser.rating });
+    }
+
+    /* 6. создаём/находим системный чат ──────────────────────── */
     const { systemChat, wasCreated } = await getSystemChatForUser(targetId);
 
-    /* уже было “предложение оставить отзыв” от этой пары по этому объявлению? */
+    /* дубликат system-сообщения? */
     const duplication = await Message.exists({
       chatId: systemChat._id,
-      "action.meta.toUser._id": authorUser._id,
-      "action.meta.ad._id": ad._id,
       "action.type": "leave_feedback",
+      "action.meta.ad._id": ad._id,
+      $or: [
+        { "action.meta.toUser._id": authorUser._id },
+        { "action.meta.toUser._id": targetId }
+      ]
     });
+
     if (!duplication) {
       await Message.create({
         chatId: systemChat._id,
@@ -80,7 +95,7 @@ export const setFeedback = async (req, res) => {
         text: `${authorUser.name} оставил вам отзыв`,
         mediaUrl: [],
         action: {
-          type: "leave_feedback",
+          type:  "leave_feedback",
           label: "Оставить ответный отзыв",
           meta: {
             toUser: { _id: authorUser._id, name: authorUser.name },
@@ -88,17 +103,17 @@ export const setFeedback = async (req, res) => {
           },
         },
       });
+
+      /* обновляем lastMessage / unreadCounts */
+      systemChat.lastMessage = { text: `${authorUser.name} оставил вам отзыв`, date: new Date() };
+      systemChat.unreadCounts.set(
+        targetId.toString(),
+        (systemChat.unreadCounts.get(targetId.toString()) || 0) + 1
+      );
+      await systemChat.save();
     }
 
-    /* ─────────── обновляем lastMessage / unreadCounts ─────────── */
-    systemChat.lastMessage = { text: `${authorUser.name} оставил вам отзыв`, date: new Date() };
-    systemChat.unreadCounts.set(
-      targetId.toString(),
-      (systemChat.unreadCounts.get(targetId.toString()) || 0) + 1
-    );
-    await systemChat.save();
-
-    /* ─────────── сокеты / push ─────────── */
+    /* 7. уведомляем через сокеты / push ─────────────────────── */
     const io = getIo();
     if (io) {
       const chatDto = {
@@ -115,13 +130,14 @@ export const setFeedback = async (req, res) => {
       };
 
       io.in(`user:${targetId}`).socketsJoin(systemChat._id.toString());
+
       if (wasCreated) {
         io.to(`user:${targetId}`).emit("new_chat", chatDto);
-      } else {
+      } else if (!duplication) {
         io.to(systemChat._id.toString()).emit("new_message", {
           chatId: systemChat._id,
           sender: { _id: SYSTEM_USER_ID, name: SYSTEM_NAME },
-          text: systemChat.lastMessage.text,
+          text:   systemChat.lastMessage.text,
           mediaUrl: [],
           createdAt: systemChat.lastMessage.date,
           isRead: false,
@@ -130,7 +146,7 @@ export const setFeedback = async (req, res) => {
       }
     }
 
-    if (targetUser.expoPushToken) {
+    if (targetUser.expoPushToken && !duplication) {
       await sendPushNotification(
         targetUser.expoPushToken,
         `${authorUser.name} оставил вам отзыв`,
@@ -150,7 +166,6 @@ export const setFeedback = async (req, res) => {
     return res.status(500).json({ message: "Ошибка сервера" });
   }
 };
-
 export const getFeedback = async (req, res) => {
   try {
     const userId = req.params.id;
