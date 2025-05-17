@@ -6,7 +6,7 @@ import {
   replyToReview,        // POST   – ответить на отзыв (опц.)
   listReviews,          // GET    – список отзывов пользователя
   deleteReview,         // DELETE – удалить свой отзыв
-} from '../controllers/reviewController.js';
+} from '../controllers/review.js';
 
 const router = Router();
 
