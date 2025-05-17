@@ -6,6 +6,7 @@ import {
   replyReview,        // POST   – ответить на отзыв (опц.)
   listReviews,          // GET    – список отзывов пользователя
   deleteReview,         // DELETE – удалить свой отзыв
+  userReviewsSummary 
 } from '../controllers/review.js';
 
 const router = Router();
@@ -34,5 +35,7 @@ router.delete(
   requireAuthorizedUser,
   deleteReview
 );
+
+router.get('/summary/:userId', userReviewsSummary);
 
 export default router;

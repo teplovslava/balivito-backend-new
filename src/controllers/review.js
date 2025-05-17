@@ -319,3 +319,19 @@ export const deleteReview = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
+/* ---------------------------------------------------------- *
+ * 5. Рейтинг + количество отзывов (корневых)                  *
+ *    GET /reviews/summary/:userId                            *
+ * ---------------------------------------------------------- */
+export const userReviewsSummary = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select('rating reviewsCount');
+    if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+
+    res.json({ rating: user.rating, reviewsCount: user.reviewsCount });
+  } catch (e) {
+    console.error('userReviewsSummary', e);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
