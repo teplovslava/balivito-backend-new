@@ -5,6 +5,7 @@ import { getIo }               from '../utils/ioHolder.js';
 import { sendPushNotification } from '../utils/sendPushNotification.js';
 import { buildChatPayload      } from '../utils/buildChatNotificationPayload.js';
 import { getSystemUserId       } from '../utils/getSystemUserId.js';
+import { getSystemChatForUser } from './getSystemChat.js';
 
 export async function sendSystemInvite({
   targetId,         // кому отправляем
