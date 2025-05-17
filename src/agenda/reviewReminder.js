@@ -1,4 +1,3 @@
-// agenda/reviewReminder.js
 import User    from '../models/User.js';
 import Ad      from '../models/Ad.js';
 import Review  from '../models/Review.js';
@@ -17,10 +16,10 @@ export default (agenda) => {
       const SYSTEM_NAME    = 'BALIVITO';
 
       const { buyerId, sellerId, adId } = job.attrs.data;
-      if (!buyerId || !sellerId || !adId) return;
-      if ([buyerId, sellerId].includes(SYSTEM_USER_ID)) return;
+      if (!buyerId || !sellerId || !adId)                           return;
+      if ([buyerId, sellerId].includes(SYSTEM_USER_ID))            return;
 
-      /* сущности */
+      /* ───── сущности ───── */
       const [buyer, seller, ad] = await Promise.all([
         User.findById(buyerId),
         User.findById(sellerId),
@@ -28,32 +27,35 @@ export default (agenda) => {
       ]);
       if (!buyer || !seller || !ad) return;
 
-      /* покупатель уже оставил отзыв этому продавцу? */
+      /* покупатель уже оставил root-отзыв этому продавцу? */
       const alreadyLeft = await Review.exists({
         author: buyerId,
         target: sellerId,
-        ad: adId,
+        ad    : adId,
+        parent: null,
       });
       if (alreadyLeft) return;
 
+      /* ───── систем-чат покупателя ───── */
       const { systemChat, wasCreated } = await getSystemChatForUser(buyerId);
 
-      /* есть дубликат напоминания? */
+      /* такое напоминание уже было? */
       const duplication = await Message.exists({
         chatId: systemChat._id,
-        'action.type'          : 'leave_feedback',
+        'action.type'          : 'invite_leave_root',
         'action.meta.toUser._id': seller._id,
         'action.meta.ad._id'   : ad._id,
       });
       if (duplication) return;
 
+      /* ───── создаём message-invite ───── */
       const message = await Message.create({
-        chatId: systemChat._id,
-        sender: SYSTEM_USER_ID,
-        text  : 'Пожалуйста, оставьте отзыв о продавце',
+        chatId : systemChat._id,
+        sender : SYSTEM_USER_ID,
+        text   : 'Пожалуйста, оставьте отзыв о продавце',
         mediaUrl: [],
-        action: {
-          type : 'leave_feedback',
+        action : {
+          type : 'invite_leave_root',            // ← новый тип
           label: 'Оставить отзыв',
           meta : {
             toUser: { _id: seller._id, name: seller.name },
@@ -62,6 +64,7 @@ export default (agenda) => {
         },
       });
 
+      /* lastMessage / unreadCounts */
       systemChat.lastMessage = { text: message.text, date: message.createdAt };
       systemChat.unreadCounts.set(
         buyerId.toString(),
@@ -69,12 +72,13 @@ export default (agenda) => {
       );
       await systemChat.save();
 
+      /* ───── сокеты ───── */
       const chatDto = {
         _id: systemChat._id,
         updatedAt: systemChat.updatedAt,
         lastMessage: {
-          text: message.text,
-          date: message.createdAt,
+          text : message.text,
+          date : message.createdAt,
           unreadCount: systemChat.unreadCounts.get(buyerId.toString()) || 0,
         },
         ad: null,
@@ -85,32 +89,34 @@ export default (agenda) => {
       const io = getIo();
       if (io) {
         io.in(`user:${buyerId}`).socketsJoin(systemChat._id.toString());
+
         if (wasCreated) {
           io.to(`user:${buyerId}`).emit('new_chat', chatDto);
         } else {
           io.to(systemChat._id.toString()).emit('new_message', {
-            chatId: systemChat._id,
-            sender: { _id: SYSTEM_USER_ID, name: SYSTEM_NAME },
-            text  : message.text,
-            mediaUrl: [],
+            chatId   : systemChat._id,
+            sender   : { _id: SYSTEM_USER_ID, name: SYSTEM_NAME },
+            text     : message.text,
+            mediaUrl : [],
             createdAt: message.createdAt,
-            isRead: false,
+            isRead   : false,
             isChanged: false,
           });
         }
       }
 
+      /* ───── push-уведомление ───── */
       if (buyer.expoPushToken) {
         await sendPushNotification(
           buyer.expoPushToken,
           'Пожалуйста, оставьте отзыв о продавце',
           'Системное сообщение',
           buildChatPayload({
-            chatId: systemChat._id,
+            chatId       : systemChat._id,
             ad,
-            companionId: SYSTEM_USER_ID,
+            companionId  : SYSTEM_USER_ID,
             companionName: SYSTEM_NAME,
-            isSystemChat: true,
+            isSystemChat : true,
           }),
         );
       }
