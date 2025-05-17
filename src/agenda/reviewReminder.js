@@ -15,14 +15,14 @@ export default (agenda) => {
     const SYSTEM_USER_ID = getSystemUserId();
     const { buyerId, sellerId, adId } = job.attrs.data;
 
-    console.log(333)
-
     if (!buyerId || !sellerId || !adId) return;
     if (sellerId === SYSTEM_USER_ID || buyerId === SYSTEM_USER_ID) return;
 
     const buyer = await User.findById(buyerId);
     const seller = await User.findById(sellerId);
     const ad = await Ad.findById(adId).select("title photos");
+
+    console.log(seller.name,seller, buyer.name)
 
     if (!buyer || !seller || !ad) return;
 
@@ -35,7 +35,6 @@ export default (agenda) => {
     if (alreadyLeftFeedback) return;
 
     const {systemChat, wasCreated} = await getSystemChatForUser(buyerId);
-    console.log(systemChat)
 
     // Проверка: уже было такое напоминание?
     const alreadySent = await Message.findOne({
@@ -106,7 +105,6 @@ export default (agenda) => {
 
     // ⏫ PUSH-уведомление (если есть expoPushToken)
     if (buyer?.expoPushToken) {
-      console.log(444)
       await sendPushNotification(
         buyer.expoPushToken,
         "Пожалуйста, оставьте отзыв о продавце",
