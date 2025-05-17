@@ -4,12 +4,10 @@ import User    from '../models/User.js';
 import Ad      from '../models/Ad.js';
 import Message from '../models/Message.js';
 
-import {
-  getSystemChatForUser,
-  getSystemUserId,
-  getIo,
-  sendPushNotification,
-} from '../utils/index.js';
+import { getSystemChatForUser }   from '../utils/getSystemChat.js';
+import { getSystemUserId }        from '../utils/getSystemUserId.js';
+import { getIo }                  from '../utils/ioHolder.js';
+import { sendPushNotification }   from '../utils/sendPushNotification.js';
 import { buildChatPayload } from '../utils/buildChatNotificationPayload.js';
 
 /* ───────────────────────────────────────────────────── */
