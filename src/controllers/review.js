@@ -4,29 +4,29 @@ import User    from '../models/User.js';
 import Ad      from '../models/Ad.js';
 import Message from '../models/Message.js';
 
-import { getSystemChatForUser }   from '../utils/getSystemChat.js';
-import { getSystemUserId }        from '../utils/getSystemUserId.js';
-import { getIo }                  from '../utils/ioHolder.js';
-import { sendPushNotification }   from '../utils/sendPushNotification.js';
-import { buildChatPayload }       from '../utils/buildChatNotificationPayload.js';
+import { getSystemChatForUser } from '../utils/getSystemChat.js';
+import { getSystemUserId      } from '../utils/getSystemUserId.js';
+import { getIo                } from '../utils/ioHolder.js';
+import { sendPushNotification } from '../utils/sendPushNotification.js';
+import { buildChatPayload     } from '../utils/buildChatNotificationPayload.js';
 
 /* ------------------------------------------------------------------ */
-/* 1. Добавить «корневой» отзыв (POST /reviews/:targetId)             */
+/* 1. Добавить КОРНЕВОЙ отзыв                                          */
 /* ------------------------------------------------------------------ */
 export const addReview = async (req, res) => {
   const SYSTEM_USER_ID = getSystemUserId();
   const SYSTEM_NAME    = 'BALIVITO';
 
   try {
-    const authorId = req.userId;
-    const targetId = req.params.targetId;
+    const authorId = req.userId;             // кто пишет
+    const targetId = req.params.targetId;    // о ком
     const { text, rating, adId } = req.body;
 
-    /* ── базовая валидация ─────────────────────────────────────────── */
+    /* валидация ------------------------------------------------------- */
     if (!authorId || authorId === targetId)
       return res.status(400).json({ message: 'Некорректные параметры' });
 
-    /* ── проверка-дубликата (author-target-ad) ─────────────────────── */
+    /* дубликат «я → ты» ---------------------------------------------- */
     const duplicate = await Review.exists({
       author : authorId,
       target : targetId,
@@ -34,11 +34,17 @@ export const addReview = async (req, res) => {
       parent : null,
     });
     if (duplicate)
-      return res
-        .status(409)
-        .json({ message: 'Вы уже оставляли отзыв по этому объявлению' });
+      return res.status(409).json({ message: 'Вы уже оставляли отзыв по этому объявлению' });
 
-    /* ── получаем сущности ─────────────────────────────────────────── */
+    /* встречный отзыв «ты → я»? -------------------------------------- */
+    const reciprocalExists = await Review.exists({
+      author : targetId,
+      target : authorId,
+      ad     : adId,
+      parent : null,
+    });
+
+    /* сущности ------------------------------------------------------- */
     const [author, target, ad] = await Promise.all([
       User.findById(authorId),
       User.findById(targetId),
@@ -47,7 +53,7 @@ export const addReview = async (req, res) => {
     if (!author || !target || !ad)
       return res.status(404).json({ message: 'Данные не найдены' });
 
-    /* ── создаём документ Review ───────────────────────────────────── */
+    /* создаём отзыв --------------------------------------------------- */
     const review = await Review.create({
       author: authorId,
       target: targetId,
@@ -57,7 +63,7 @@ export const addReview = async (req, res) => {
       parent: null,
     });
 
-    /* ── пересчёт рейтинга адресата ───────────────────────────────── */
+    /* пересчёт рейтинга адресата ------------------------------------- */
     const agg = await Review.aggregate([
       { $match: { target: target._id, parent: null } },
       { $group: { _id: null, avg: { $avg: '$rating' } } },
@@ -65,15 +71,17 @@ export const addReview = async (req, res) => {
     target.rating = +(agg[0]?.avg?.toFixed(1) || 0);
     await target.save();
 
-    /* ── уведомляем вторую сторону ────────────────────────────────── */
-    await notifyTarget({
-      target,
-      author,
-      ad,
-      SYSTEM_USER_ID,
-      SYSTEM_NAME,
-      text: `${author.name} оставил вам отзыв`,
-    });
+    /* уведомляем ТОЛЬКО если встречного корневого отзыва ещё нет ------ */
+    if (!reciprocalExists) {
+      await notifyTarget({
+        target,
+        author,
+        ad,
+        SYSTEM_USER_ID,
+        SYSTEM_NAME,
+        text : `${author.name} оставил вам отзыв`,
+      });
+    }
 
     return res.status(201).json(review);
   } catch (e) {
@@ -83,7 +91,7 @@ export const addReview = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* 2. Ответ на отзыв  (POST /reviews/:parentId/reply)                 */
+/* 2. Ответ на отзыв / ответ на ответ                                  */
 /* ------------------------------------------------------------------ */
 export const replyReview = async (req, res) => {
   const SYSTEM_USER_ID = getSystemUserId();
@@ -95,24 +103,23 @@ export const replyReview = async (req, res) => {
     const { text } = req.body;
 
     const parent = await Review.findById(parentId).populate('ad target');
-    if (!parent)
-      return res.status(404).json({ message: 'Отзыв не найден' });
+    if (!parent) return res.status(404).json({ message: 'Отзыв не найден' });
 
-    /* автор ответа = либо автор parent, либо target parent */
+    /* право ответа ---------------------------------------------------- */
     if (
       authorId !== parent.author.toString() &&
       authorId !== parent.target._id.toString()
     )
       return res.status(403).json({ message: 'Нет прав' });
 
+    /* создаём ответ --------------------------------------------------- */
     const answer = await Review.create({
-      author: authorId,
-      target:
-        parent.author.toString() === authorId ? parent.target : parent.author,
-      ad: parent.ad,
+      author : authorId,
+      target : parent.author.toString() === authorId ? parent.target : parent.author,
+      ad     : parent.ad,
       text,
-      rating: null,
-      parent: parentId,
+      rating : null,
+      parent : parentId,
     });
 
     const [author, target] = await Promise.all([
@@ -120,13 +127,14 @@ export const replyReview = async (req, res) => {
       User.findById(answer.target),
     ]);
 
+    /* уведомляем адресата ------------------------------------------- */
     await notifyTarget({
       target,
       author,
-      ad: parent.ad,
+      ad   : parent.ad,
       SYSTEM_USER_ID,
       SYSTEM_NAME,
-      text: `${author.name} ответил(а) на ваш отзыв`,
+      text : `${author.name} ответил(а) на ваш отзыв`,
     });
 
     return res.status(201).json(answer);
@@ -137,7 +145,7 @@ export const replyReview = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* 3. Список отзывов  (GET /reviews/:targetId?page&limit)             */
+/* 3. Список отзывов (корневые + ответы)                               */
 /* ------------------------------------------------------------------ */
 export const listReviews = async (req, res) => {
   try {
@@ -177,7 +185,7 @@ export const listReviews = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* 4. Удалить отзыв / ответ  (DELETE /reviews/:reviewId)              */
+/* 4. Удалить отзыв / ответ                                            */
 /* ------------------------------------------------------------------ */
 export const deleteReview = async (req, res) => {
   try {
@@ -195,7 +203,7 @@ export const deleteReview = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
-/* helper: единое уведомление второй стороны                          */
+/* helper: system-чат + push-уведомление                              */
 /* ------------------------------------------------------------------ */
 async function notifyTarget({ target, author, ad, SYSTEM_USER_ID, SYSTEM_NAME, text }) {
   /* системный чат */
@@ -203,18 +211,18 @@ async function notifyTarget({ target, author, ad, SYSTEM_USER_ID, SYSTEM_NAME, t
 
   /* системное сообщение */
   await Message.create({
-    chatId: systemChat._id,
-    sender: SYSTEM_USER_ID,
+    chatId : systemChat._id,
+    sender : SYSTEM_USER_ID,
     text,
     mediaUrl: [],
-    action: {
+    action : {
       type : 'leave_feedback',
       label: 'Ответить',
       meta : { toUser: { _id: author._id, name: author.name }, ad },
     },
   });
 
-  /* обновляем lastMessage / unreadCounts */
+  /* lastMessage / unreadCounts */
   systemChat.lastMessage = { text, date: new Date() };
   systemChat.unreadCounts.set(
     target._id.toString(),
