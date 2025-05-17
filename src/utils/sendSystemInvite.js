@@ -7,13 +7,13 @@ import { buildChatPayload      } from '../utils/buildChatNotificationPayload.js'
 import { getSystemUserId       } from '../utils/getSystemUserId.js';
 
 export async function sendSystemInvite({
-  chat,
   targetId,         // кому отправляем
   text,
   action = null,    // { type, label, meta } | null
 }) {
   const SYSTEM_USER_ID = getSystemUserId();
   const SYSTEM_NAME    = 'BALIVITO';
+  const { systemChat: chat, wasCreated } = await getSystemChatForUser(targetId);
 
   /* 1. создаём сообщение-инвайт */
   const msg = await Message.create({

@@ -62,9 +62,7 @@ export const addReview = async (req, res) => {
       author: targetId, target: authorId, ad: adId, parent: null,
     });
     if (!reciprocal) {
-      const { systemChat } = await getSystemChatForUser(targetId);
       await sendSystemInvite({
-        chat    : systemChat,
         targetId: targetId,
         text    : `${author.name} оставил вам отзыв`,
         action  : {
@@ -136,9 +134,8 @@ export const replyReview = async (req, res) => {
     });
 
     /* — новое приглашение адресату — */
-    const { systemChat } = await getSystemChatForUser(target._id);
+
     await sendSystemInvite({
-      chat    : systemChat,
       targetId: target._id,
       text    : `${author.name} ответил(а) на ваш отзыв`,
       action  : {
