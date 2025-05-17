@@ -133,19 +133,14 @@ async function markRequestAsCompleted({ author, target, ad, text, rating }) {
  * ---------------------------------------------------------- */
 export const addReview = async (req, res) => {
   try {
-    const SYSTEM_USER_ID = getSystemUserId();
     const authorId = req.userId;
     const targetId = req.params.targetId;
     const { text, rating, adId } = req.body;
 
-    /* базовая валидация */
     if (!authorId || authorId === targetId)
       return res.status(400).json({ message: 'Некорректные параметры' });
 
-    /* уже есть мой отзыв этому юзеру по объявлению? */
-    const duplicate = await Review.exists({
-      author: authorId, target: targetId, ad: adId, parent: null,
-    });
+    const duplicate = await Review.exists({ author: authorId, target: targetId, ad: adId, parent: null });
     if (duplicate)
       return res.status(409).json({ message: 'Вы уже оставляли отзыв по этому объявлению' });
 
@@ -160,36 +155,33 @@ export const addReview = async (req, res) => {
 
     /* создаём отзыв */
     const review = await Review.create({
-      author: authorId,
-      target: targetId,
-      ad    : adId,
-      text,
-      rating,
-      parent: null,
+      author: authorId, target: targetId, ad: adId,
+      text, rating, parent: null,
     });
 
-    /* пересчёт рейтинга target */
-    const agg = await Review.aggregate([
+    /* ─── пересчёт рейтинга И количества ─── */
+    const [agg] = await Review.aggregate([
       { $match: { target: target._id, parent: null } },
-      { $group: { _id: null, avg: { $avg: '$rating' } } },
+      {
+        $group: {
+          _id : null,
+          avg : { $avg: '$rating' },
+          cnt : { $sum: 1 },
+        },
+      },
     ]);
-    target.rating = +(agg[0]?.avg?.toFixed(1) || 0);
+
+    target.rating       = +(agg?.avg?.toFixed(1) || 0);
+    target.reviewsCount = agg?.cnt || 1;
     await target.save();
 
-    /* меняем приглашение у автора (если было) */
+    /* обновляем систем-чат */
     await markRequestAsCompleted({ author, target, ad, text, rating });
 
-    /* встречного отзыва ещё нет? — шлём приглашение target-у */
-    const reciprocalExists = await Review.exists({
-      author: targetId, target: authorId, ad: adId, parent: null,
-    });
+    /* приглашаем target только если встречного отзыва нет */
+    const reciprocalExists = await Review.exists({ author: targetId, target: authorId, ad: adId, parent: null });
     if (!reciprocalExists) {
-      await notifyTarget({
-        target,
-        author,
-        ad,
-        text: `${author.name} оставил вам отзыв`,
-      });
+      await notifyTarget({ target, author, ad, text: `${author.name} оставил вам отзыв` });
     }
 
     return res.status(201).json(review);
@@ -297,7 +289,30 @@ export const deleteReview = async (req, res) => {
     if (review.author.toString() !== req.userId)
       return res.status(403).json({ message: 'Нет прав' });
 
+    const isRoot = !review.parent;          // корневой?
+
+    const targetId = review.target;         // пользователь, чей рейтинг считаем позже
     await review.deleteOne();
+
+    /* если удалили корневой - пересчитываем рейтинг и количество */
+    if (isRoot) {
+      const [agg] = await Review.aggregate([
+        { $match: { target: targetId, parent: null } },
+        {
+          $group: {
+            _id : null,
+            avg : { $avg: '$rating' },
+            cnt : { $sum: 1 },
+          },
+        },
+      ]);
+
+      await User.findByIdAndUpdate(targetId, {
+        rating      : +(agg?.avg?.toFixed(1) || 0),
+        reviewsCount: agg?.cnt || 0,
+      });
+    }
+
     return res.json({ message: 'Удалено' });
   } catch (e) {
     console.error('deleteReview', e);
