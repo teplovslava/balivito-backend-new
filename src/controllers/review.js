@@ -155,42 +155,59 @@ export const replyReview = async (req, res) => {
 /* ---------------------------------------------------------- *
  * 3. Список отзывов пользователя                             *
  * ---------------------------------------------------------- */
+// controllers/reviewController.js
+
 export const listReviews = async (req, res) => {
   try {
     const { targetId } = req.params;
     const page  = +req.query.page  || 1;
     const limit = +req.query.limit || 10;
 
+    /* ─── 1. находим пользователя, чтобы взять name ─── */
+    const targetUser = await User.findById(targetId).select('name');
+    if (!targetUser)
+      return res.status(404).json({ message: 'Пользователь не найден' });
+
+    /* ─── 2. отзывы + ответы ─── */
     const [items, total] = await Promise.all([
       Review.find({ target: targetId, parent: null })
             .sort({ createdAt: -1 })
-            .skip((page-1)*limit).limit(limit)
+            .skip((page-1)*limit)
+            .limit(limit)
             .populate('author', 'name')
             .lean()
-            .then(async reviews => {
-              const ids = reviews.map(r => r._id);
+            .then(async roots => {
+              const ids = roots.map(r => r._id);
               const replies = await Review.find({ parent: { $in: ids } })
                                           .sort({ createdAt: 1 })
                                           .populate('author', 'name')
                                           .lean();
-              const grouped = replies.reduce((acc, r) => {
+              const byParent = replies.reduce((acc, r) => {
                 (acc[r.parent] ||= []).push(r);
                 return acc;
               }, {});
-              return reviews.map(r => ({ ...r, replies: grouped[r._id] || [] }));
+              return roots.map(r => ({ ...r, replies: byParent[r._id] || [] }));
             }),
       Review.countDocuments({ target: targetId, parent: null }),
     ]);
 
-    return res.json({
+    /* ─── 3. формируем ответ ─── */
+    res.json({
+      user: { _id: targetUser._id, name: targetUser.name },   // ← имя адресата
       items,
-      pagination: { total, page, limit, totalPages: Math.ceil(total/limit) },
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (e) {
     console.error('listReviews', e);
-    return res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 /* ---------------------------------------------------------- *
  * 4. Удаление отзыва / ответа                                *
