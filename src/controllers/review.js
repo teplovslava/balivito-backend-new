@@ -97,16 +97,18 @@ export const addReview = async (req, res) => {
 // controllers/reviewController.js
 /* controllers/reviewController.js */
 
+// controllers/reviewController.js
 export const replyReview = async (req, res) => {
   try {
-    const authorId = req.userId;
-    const parentId = req.params.parentId;
+    const authorId = req.userId;           // кто отвечает
+    const parentId = req.params.parentId;  // на что отвечаем
     const { text } = req.body;
 
+    /* ─── исходное сообщение ─── */
     const parent = await Review.findById(parentId).populate('ad target');
     if (!parent) return res.status(404).json({ message: 'Отзыв не найден' });
 
-    /* ─── право ответа ─── */
+    /* ─── проверка права ─── */
     if (
       authorId !== parent.author.toString() &&
       authorId !== parent.target._id.toString()
@@ -114,18 +116,15 @@ export const replyReview = async (req, res) => {
       return res.status(403).json({ message: 'Нет прав' });
     }
 
-    /* ─── корень треда + владелец ленты ─── */
+    /* ─── корень треда + владелец отзывов ─── */
     const root = parent.parent
       ? await Review.findById(parent.parent).select('target')
-      : parent;                                       // parent сам корень
+      : parent;
 
-    /* target может быть ObjectId или популяцией User -------------------- */
-    let profileOwnerId;
-    if (typeof root.target === 'object' && root.target !== null && '_id' in root.target) {
-      profileOwnerId = root.target._id.toString();    // популяция
-    } else {
-      profileOwnerId = root.target.toString();        // ObjectId
-    }
+    const profileOwnerId =
+      typeof root.target === 'object' && root.target !== null && '_id' in root.target
+        ? root.target._id.toString()
+        : root.target.toString();
 
     /* ─── создаём ответ ─── */
     const answer = await Review.create({
@@ -134,7 +133,7 @@ export const replyReview = async (req, res) => {
       ad    : parent.ad,
       text,
       rating: null,
-      parent: root._id,                               // всегда корневой
+      parent: root._id,                      // всегда корневой
     });
 
     await answer.populate([
@@ -142,24 +141,31 @@ export const replyReview = async (req, res) => {
       { path: 'target', select: 'name' },
     ]);
 
-    /* ─── закрываем своё приглашение ─── */
+    /* ─── гасим СВОЁ приглашение «Ответить» ─── */
     const { systemChat: authorChat } = await getSystemChatForUser(authorId);
+
+    /* какой тип нужно закрыть? */
+    const closeFilter = {
+            'action.type'           : 'invite_reply_reply',
+            'action.meta.parentId'  : root._id.toString(),
+          }
+
     await updateInviteAsDone({
-      chat  : authorChat,
-      filter: { 'action.type': 'invite_reply_reply', 'action.meta.parentId': root._id },
+      chat   : authorChat,
+      filter : closeFilter,
       newText: `Вы ответили пользователю ${answer.target.name}: «${text}»`,
     });
 
     /* ─── новое приглашение адресату ─── */
     await sendSystemInvite({
-      targetId: answer.target._id,                 // теперь очередь собеседника
+      targetId: answer.target._id,               // теперь очередь собеседника
       text    : `${answer.author.name} ответил(а) на ваш отзыв`,
       action  : {
         type : 'invite_reply_reply',
         label: 'Ответить',
         meta : {
-          parentId : root._id.toString(),          // корень треда
-          authorId : profileOwnerId,               // ← всегда ID продавца
+          parentId : root._id.toString(),        // открываем тред с корня
+          authorId : profileOwnerId,             // владелец отзывов
         },
       },
     });
