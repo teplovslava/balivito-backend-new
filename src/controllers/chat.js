@@ -120,11 +120,11 @@ export const sendMessage = async (
     const senderId = socket.userId;
 
     let chat = chatId
-      ? await Chat.findById(chatId).populate("ad", "title photos")
+      ? await Chat.findById(chatId)
       : await Chat.findOne({
           ad: adId,
           participants: { $all: [senderId, recipientId], $size: 2 },
-        }).populate("ad", "title photos");
+        });
 
     let isNewChat = false;
     if (!chat) {
@@ -167,8 +167,6 @@ export const sendMessage = async (
       });
     }
 
-    const populatedAd = chat.ad; 
-
     chat.lastMessage = { text: text || "[Изображения]", date: new Date() };
     if (recipientId) {
       chat.unreadCounts.set(
@@ -176,7 +174,6 @@ export const sendMessage = async (
         (chat.unreadCounts.get(recipientId.toString()) || 0) + 1
       );
     }
-
 
     await chat.save();
 
@@ -225,10 +222,11 @@ export const sendMessage = async (
     const companionName = recipient?.name || "Пользователь";
 
     if (recipient?.expoPushToken) {
-      const adPhoto = populatedAd.photos?.[0]?.uri ?? "";
-      const adName  = populatedAd.title;
+      const fullChat = await Chat.findById(chat._id).populate("ad", "title photos");
+      const adPhoto = fullChat.ad.photos?.[0]?.uri ?? "";
+      const adName  = fullChat.ad.title;
 
-      console.log(populatedAd)
+      console.log(fullChat)
 
       await sendPushNotification(
         recipient.expoPushToken,
