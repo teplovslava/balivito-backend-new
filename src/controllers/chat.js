@@ -167,6 +167,8 @@ export const sendMessage = async (
       });
     }
 
+    const populatedAd = chat.ad; 
+
     chat.lastMessage = { text: text || "[Изображения]", date: new Date() };
     if (recipientId) {
       chat.unreadCounts.set(
@@ -175,7 +177,7 @@ export const sendMessage = async (
       );
     }
 
-    const populatedAd = chat.ad; 
+
     await chat.save();
 
     socket.join(chat._id.toString());
