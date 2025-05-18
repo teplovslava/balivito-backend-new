@@ -120,6 +120,12 @@ export const replyReview = async (req, res) => {
       parent : parentId,
     });
 
+    /* --- сразу подтягиваем имя автора и цель ответа --- */
+    const populatedAnswer = await answer.populate([
+      { path: 'author', select: 'name avatar' }, // avatar — если нужен
+      { path: 'target', select: 'name' },
+    ]);
+
     const [author, target] = await Promise.all([
       User.findById(authorId),
       User.findById(answer.target),
@@ -145,7 +151,7 @@ export const replyReview = async (req, res) => {
       },
     });
 
-    return res.status(201).json(answer);
+    return res.status(201).json(populatedAnswer);
   } catch (e) {
     console.error('replyReview', e);
     return res.status(500).json({ message: 'Server error' });
