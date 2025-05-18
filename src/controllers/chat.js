@@ -226,6 +226,8 @@ export const sendMessage = async (
       const adPhoto = populatedAd.photos?.[0]?.uri ?? "";
       const adName  = populatedAd.title;
 
+      console.log(populatedAd)
+
       await sendPushNotification(
         recipient.expoPushToken,
         `${message.sender.name}: ${text}`,
