@@ -95,39 +95,46 @@ export const addReview = async (req, res) => {
 /* 2.  ОТВЕТ НА ОТЗЫВ  –  POST /reviews/:parentId/reply           */
 /* ══════════════════════════════════════════════════════════════ */
 // controllers/reviewController.js
+/* controllers/reviewController.js */
+
 export const replyReview = async (req, res) => {
   try {
-    const authorId = req.userId;          // кто отвечает сейчас
-    const parentId = req.params.parentId; // _id сообщения, на которое отвечаем
+    const authorId = req.userId;
+    const parentId = req.params.parentId;
     const { text } = req.body;
 
-    /* ─── 1. ищем родителя + его связи ─── */
     const parent = await Review.findById(parentId).populate('ad target');
     if (!parent) return res.status(404).json({ message: 'Отзыв не найден' });
 
-    /* ─── 2. проверяем право ответа ─── */
+    /* ─── право ответа ─── */
     if (
-      authorId !== parent.author.toString() &&   // автор родителя
-      authorId !== parent.target._id.toString()  // владелец профиля
+      authorId !== parent.author.toString() &&
+      authorId !== parent.target._id.toString()
     ) {
       return res.status(403).json({ message: 'Нет прав' });
     }
 
-    /* ─── 3. находим корневой отзыв и владельца профиля ─── */
-    const root   = parent.parent
+    /* ─── корень треда + владелец ленты ─── */
+    const root = parent.parent
       ? await Review.findById(parent.parent).select('target')
-      : parent;                                  // parent сам корневой
+      : parent;                                       // parent сам корень
 
-    const profileOwnerId = root.target.toString(); // продавец (владелец отзывов)
+    /* target может быть ObjectId или популяцией User -------------------- */
+    let profileOwnerId;
+    if (typeof root.target === 'object' && root.target !== null && '_id' in root.target) {
+      profileOwnerId = root.target._id.toString();    // популяция
+    } else {
+      profileOwnerId = root.target.toString();        // ObjectId
+    }
 
-    /* ─── 4. создаём ответ ─── */
+    /* ─── создаём ответ ─── */
     const answer = await Review.create({
-      author : authorId,
-      target : parent.author.toString() === authorId ? parent.target : parent.author,
-      ad     : parent.ad,
+      author: authorId,
+      target: parent.author.toString() === authorId ? parent.target : parent.author,
+      ad    : parent.ad,
       text,
-      rating : null,
-      parent : root._id,                         // всегда корневой
+      rating: null,
+      parent: root._id,                               // всегда корневой
     });
 
     await answer.populate([
@@ -135,7 +142,7 @@ export const replyReview = async (req, res) => {
       { path: 'target', select: 'name' },
     ]);
 
-    /* ─── 5. гасим своё предыдущее приглашение «Ответить» ─── */
+    /* ─── закрываем своё приглашение ─── */
     const { systemChat: authorChat } = await getSystemChatForUser(authorId);
     await updateInviteAsDone({
       chat  : authorChat,
@@ -143,7 +150,7 @@ export const replyReview = async (req, res) => {
       newText: `Вы ответили пользователю ${answer.target.name}: «${text}»`,
     });
 
-    /* ─── 6. отправляем новое приглашение адресату ─── */
+    /* ─── новое приглашение адресату ─── */
     await sendSystemInvite({
       targetId: answer.target._id,                 // теперь очередь собеседника
       text    : `${answer.author.name} ответил(а) на ваш отзыв`,
@@ -151,8 +158,8 @@ export const replyReview = async (req, res) => {
         type : 'invite_reply_reply',
         label: 'Ответить',
         meta : {
-          parentId : root._id.toString(),          // раскрываем тред от корня
-          authorId : profileOwnerId,               // ← владелец отзывов
+          parentId : root._id.toString(),          // корень треда
+          authorId : profileOwnerId,               // ← всегда ID продавца
         },
       },
     });
@@ -163,6 +170,7 @@ export const replyReview = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 
 /* ---------------------------------------------------------- *
