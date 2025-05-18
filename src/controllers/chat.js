@@ -221,7 +221,7 @@ export const sendMessage = async (
     const companionName = recipient?.name || "Пользователь";
 
     if (recipient?.expoPushToken) {
-      console.log(chat.ad)
+      console.log(chat)
       await sendPushNotification(
         recipient.expoPushToken,
         `${message.sender.name}: ${text}`,
