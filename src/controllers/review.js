@@ -137,7 +137,7 @@ export const replyReview = async (req, res) => {
     const { systemChat: authorChat } = await getSystemChatForUser(authorId);
     await updateInviteAsDone({
       chat  : authorChat,
-      filter: { 'action.type': 'invite_reply_root', 'action.meta.parentId': parentId },
+      filter: { 'action.type': 'invite_reply_reply', 'action.meta.parentId': parentId },
       newText: `Вы ответили пользователю ${target.name}: «${text}»`,
     });
 
