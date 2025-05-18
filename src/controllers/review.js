@@ -110,15 +110,17 @@ export const replyReview = async (req, res) => {
     )
       return res.status(403).json({ message: 'Нет прав' });
 
-    /* — создаём ответ — */
-    const answer = await Review.create({
-      author : authorId,
-      target : parent.author.toString() === authorId ? parent.target : parent.author,
-      ad     : parent.ad,
-      text,
-      rating : null,
-      parent : parentId,
-    });
+      const rootId = parent.parent ? parent.parent : parent._id;
+
+      const answer = await Review.create({
+        author : authorId,
+        target : parent.author.toString() === authorId ? parent.target : parent.author,
+        ad     : parent.ad,
+        text,
+        rating : null,
+        parent : rootId,           // ← всегда корневой
+      });
+
 
     /* --- сразу подтягиваем имя автора и цель ответа --- */
     const populatedAnswer = await answer.populate([
