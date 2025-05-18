@@ -174,6 +174,8 @@ export const sendMessage = async (
         (chat.unreadCounts.get(recipientId.toString()) || 0) + 1
       );
     }
+
+    const populatedAd = chat.ad; 
     await chat.save();
 
     socket.join(chat._id.toString());
@@ -221,7 +223,9 @@ export const sendMessage = async (
     const companionName = recipient?.name || "Пользователь";
 
     if (recipient?.expoPushToken) {
-      console.log(chat)
+      const adPhoto = populatedAd.photos?.[0]?.uri ?? "";
+      const adName  = populatedAd.title;
+
       await sendPushNotification(
         recipient.expoPushToken,
         `${message.sender.name}: ${text}`,
@@ -231,8 +235,8 @@ export const sendMessage = async (
           adId,
           companionId: recipientId,
           companionName: companionName,
-          adPhoto: chat.ad.photos?.[0]?.uri || "",
-          adName: chat.ad.title,
+          adPhoto,
+          adName,
         }
       );
     }
