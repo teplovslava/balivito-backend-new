@@ -94,71 +94,76 @@ export const addReview = async (req, res) => {
 /* ══════════════════════════════════════════════════════════════ */
 /* 2.  ОТВЕТ НА ОТЗЫВ  –  POST /reviews/:parentId/reply           */
 /* ══════════════════════════════════════════════════════════════ */
+// controllers/reviewController.js
 export const replyReview = async (req, res) => {
   try {
-    const authorId = req.userId;
-    const parentId = req.params.parentId;
+    const authorId = req.userId;          // кто отвечает сейчас
+    const parentId = req.params.parentId; // _id сообщения, на которое отвечаем
     const { text } = req.body;
 
+    /* ─── 1. ищем родителя + его связи ─── */
     const parent = await Review.findById(parentId).populate('ad target');
     if (!parent) return res.status(404).json({ message: 'Отзыв не найден' });
 
-    /* право ответа */
+    /* ─── 2. проверяем право ответа ─── */
     if (
-      authorId !== parent.author.toString() &&
-      authorId !== parent.target._id.toString()
-    )
+      authorId !== parent.author.toString() &&   // автор родителя
+      authorId !== parent.target._id.toString()  // владелец профиля
+    ) {
       return res.status(403).json({ message: 'Нет прав' });
+    }
 
-      const rootId = parent.parent ? parent.parent : parent._id;
+    /* ─── 3. находим корневой отзыв и владельца профиля ─── */
+    const root   = parent.parent
+      ? await Review.findById(parent.parent).select('target')
+      : parent;                                  // parent сам корневой
 
-      const answer = await Review.create({
-        author : authorId,
-        target : parent.author.toString() === authorId ? parent.target : parent.author,
-        ad     : parent.ad,
-        text,
-        rating : null,
-        parent : rootId,           // ← всегда корневой
-      });
+    const profileOwnerId = root.target.toString(); // продавец (владелец отзывов)
 
+    /* ─── 4. создаём ответ ─── */
+    const answer = await Review.create({
+      author : authorId,
+      target : parent.author.toString() === authorId ? parent.target : parent.author,
+      ad     : parent.ad,
+      text,
+      rating : null,
+      parent : root._id,                         // всегда корневой
+    });
 
-    /* --- сразу подтягиваем имя автора и цель ответа --- */
-    const populatedAnswer = await answer.populate([
-      { path: 'author', select: 'name avatar' }, // avatar — если нужен
+    await answer.populate([
+      { path: 'author', select: 'name avatar' },
       { path: 'target', select: 'name' },
     ]);
 
-    const [author, target] = await Promise.all([
-      User.findById(authorId),
-      User.findById(answer.target),
-    ]);
-
-    /* — гасим своё приглашение “ответить” — */
+    /* ─── 5. гасим своё предыдущее приглашение «Ответить» ─── */
     const { systemChat: authorChat } = await getSystemChatForUser(authorId);
     await updateInviteAsDone({
       chat  : authorChat,
-      filter: { 'action.type': 'invite_reply_reply', 'action.meta.parentId': parentId },
-      newText: `Вы ответили пользователю ${target.name}: «${text}»`,
+      filter: { 'action.type': 'invite_reply_reply', 'action.meta.parentId': root._id },
+      newText: `Вы ответили пользователю ${answer.target.name}: «${text}»`,
     });
 
-    /* — новое приглашение адресату — */
-
+    /* ─── 6. отправляем новое приглашение адресату ─── */
     await sendSystemInvite({
-      targetId: target._id,
-      text    : `${author.name} ответил(а) на ваш отзыв`,
+      targetId: answer.target._id,                 // теперь очередь собеседника
+      text    : `${answer.author.name} ответил(а) на ваш отзыв`,
       action  : {
         type : 'invite_reply_reply',
         label: 'Ответить',
-        meta : { parentId, authorId },            // ← оба id
+        meta : {
+          parentId : root._id.toString(),          // раскрываем тред от корня
+          authorId : profileOwnerId,               // ← владелец отзывов
+        },
       },
     });
 
-    return res.status(201).json(populatedAnswer);
+    return res.status(201).json(answer);
   } catch (e) {
     console.error('replyReview', e);
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 /* ---------------------------------------------------------- *
  * 3. Список отзывов пользователя                             *
