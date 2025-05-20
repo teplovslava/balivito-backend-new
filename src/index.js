@@ -10,6 +10,7 @@ import defineReviewReminder from "./agenda/reviewReminder.js";
 
 import { ensureSystemUser } from "./scripts/initSystemUser.js";
 import { setIo } from "./utils/ioHolder.js";
+import { runSeed } from "./scripts/user.js";
 
 dotenv.config();
 
@@ -31,6 +32,8 @@ connectDB().then(async () => {
   defineReviewReminder(agenda); // регистрация задач
 
   await ensureSystemUser();
+
+  await runSeed();
 
   server.listen(PORT, () =>
     console.log(`🚀 Server started on port ${PORT}`)

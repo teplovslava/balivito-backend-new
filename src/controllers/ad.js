@@ -160,6 +160,7 @@ export const getAdById = async (req, res) => {
 
 export const getAds = async (req, res) => {
   try {
+    // 1. Достаём все параметры фильтрации из запроса
     const {
       page = 1,
       limit = 10,
@@ -168,10 +169,14 @@ export const getAds = async (req, res) => {
       category,
       location,
       search,
+      minPrice,
+      maxPrice,
+      currency,
     } = req.query;
 
     const viewerId = req.userId;
 
+    // 2. Формируем фильтр
     const filter = { isArchived: false };
 
     if (category) filter.category = category;
@@ -181,25 +186,59 @@ export const getAds = async (req, res) => {
       filter.title = { $regex: new RegExp(escapedSearch, "i") };
     }
 
-    const { ads, pagination } = await getPaginatedAds({
-      filter,
-      page: +page,
-      limit: +limit,
-      sort,
-      order,
-    });
+    // --- ФИЛЬТРАЦИЯ ПО ЦЕНЕ ---
+    // minPrice, maxPrice и currency (currency обязателен, иначе непонятно, по какому полю фильтровать)
+    if (currency && (minPrice || maxPrice)) {
+      filter[`price.${currency}`] = {};
+      if (minPrice !== undefined && minPrice !== "") {
+        filter[`price.${currency}`].$gte = Number(minPrice);
+      }
+      if (maxPrice !== undefined && maxPrice !== "") {
+        filter[`price.${currency}`].$lte = Number(maxPrice);
+      }
+      // Если объект пустой — убираем из фильтра
+      if (Object.keys(filter[`price.${currency}`]).length === 0) {
+        delete filter[`price.${currency}`];
+      }
+    }
+
+    // --- Сортировка ---
+    const sortField = sort || "createdAt";
+    const sortOrder = order === "asc" ? 1 : -1;
+    const sortObj = { [sortField]: sortOrder };
+
+    // --- ПАГИНАЦИЯ ---
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // --- Запрос ---
+    const ads = await Ad.find(filter)
+      .sort(sortObj)
+      .skip(skip)
+      .limit(Number(limit))
+      .populate("author", "-password -__v -createdAt -updatedAt")
+      .populate("category", "-__v")
+      .populate("location");
+
+    const total = await Ad.countDocuments(filter);
+
+    const pagination = {
+      page: Number(page),
+      limit: Number(limit),
+      total,
+      totalPages: Math.ceil(total / Number(limit)),
+    };
 
     res.json({
       items: ads,
       pagination,
     });
 
-    // Обновляем историю просмотров
+    // --- Обновляем историю просмотров ---
     if (viewerId && ads.length) {
       const newHistoryItems = ads.slice(0, 5).map((ad) => ({
         ad: ad._id,
-        category: ad.category._id,
-        location: ad.location._id,
+        category: ad.category?._id,
+        location: ad.location?._id,
         viewedAt: new Date(),
       }));
 
