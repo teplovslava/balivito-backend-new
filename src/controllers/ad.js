@@ -205,8 +205,12 @@ export const getAds = async (req, res) => {
     // --- Сортировка ---
     const sortField = sort || "createdAt";
     const sortOrder = order === "asc" ? 1 : -1;
-    const sortObj = { [sortField]: sortOrder };
-
+    let sortObj = {};
+    if (sortField === 'price' && currency) {
+      sortObj[`price.${currency}`] = sortOrder;
+    } else {
+      sortObj[sortField] = sortOrder;
+    }
     // --- ПАГИНАЦИЯ ---
     const skip = (Number(page) - 1) * Number(limit);
 
