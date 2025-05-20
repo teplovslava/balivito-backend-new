@@ -5,7 +5,7 @@ import { ensureDefaultCategories } from "./category.js";
 import { ensureDefaultLocations } from "./locations.js";
 
 const NUM_USERS = 10;
-const NUM_ADS = 50;
+const NUM_ADS = 200;
 
 const commonTitle = 'Unbranded Silk Bike'; 
 
