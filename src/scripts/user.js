@@ -7,6 +7,8 @@ import { ensureDefaultLocations } from "./locations.js";
 const NUM_USERS = 10;
 const NUM_ADS = 50;
 
+const commonTitle = 'Unbranded Silk Bike'; 
+
 export const runSeed = async () => {
   try {
     const categories = await ensureDefaultCategories();
@@ -44,7 +46,7 @@ export const runSeed = async () => {
 
       ads.push(
         new Ad({
-          title: faker.commerce.productName(),
+          title: commonTitle,
           description: faker.commerce.productDescription(),
           price,
           category: faker.helpers.arrayElement(categories)._id,
