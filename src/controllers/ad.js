@@ -41,7 +41,7 @@ export const createAd = async (req, res) => {
     }
 
     const photoPaths =
-      req.uploadedFiles.map((file) => ({
+      req.uploadedFiles?.map((file) => ({
         id: file._id,
         uri: file.uri,
         filename: file.filename,
