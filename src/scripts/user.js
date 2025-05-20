@@ -34,7 +34,6 @@ export const runSeed = async () => {
         currencies,
         faker.number.int({ min: 1, max: 3 })
       );
-
       const price = {};
       if (selected.includes("usd"))
         price.usd = faker.number.int({ min: 100, max: 1000 });
@@ -50,11 +49,22 @@ export const runSeed = async () => {
           price,
           category: faker.helpers.arrayElement(categories)._id,
           location: faker.helpers.arrayElement(locations)._id,
-          photos: [faker.image.url(), faker.image.url()],
+          photos: [
+            {
+              uri: faker.image.url(),
+              filename: faker.system.fileName(),
+              // id: new mongoose.Types.ObjectId(), // если поле id обязательно в photos — добавь!
+            },
+            {
+              uri: faker.image.url(),
+              filename: faker.system.fileName(),
+            }
+          ],
           author: faker.helpers.arrayElement(savedUsers)._id,
         })
       );
     }
+
 
     await Ad.insertMany(ads);
     console.log(`📦 Добавлено ${ads.length} объявлений`);
