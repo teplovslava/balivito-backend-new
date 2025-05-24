@@ -13,10 +13,30 @@ import { getPaginatedAds } from "../utils/getPaginatedAds.js";
 
 // --- ХЕЛПЕР: Получить имя поля на нужном языке (category, location)
 function getNameByLang(field, lang = 'en') {
-  console.log(field.name)
   if (!field) return '';
+
+  // Если пришел просто строкой
   if (typeof field === 'string') return field;
-  return field.name.get(lang);
+
+  // Если это Map (instanceof Map)
+  if (field instanceof Map) {
+    return field.get(lang) || field.get('en') || '';
+  }
+
+  // Если это объект { name: { ... } }
+  if (field.name && typeof field.name === 'object') {
+    // Map или Object
+    if (field.name instanceof Map) {
+      return field.name.get(lang) || field.name.get('en') || '';
+    }
+    return field.name[lang] || field.name['en'] || '';
+  }
+
+  // Если это обычный объект { en: '...', ... }
+  if (typeof field === 'object') {
+    return field[lang] || field['en'] || '';
+  }
+
   return '';
 }
 
