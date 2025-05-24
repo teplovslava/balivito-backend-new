@@ -71,7 +71,7 @@ export const addReview = async (req, res) => {
         text    : t('review_for_you_notify', lang, { authorName: author.name }),
         action  : {
           type : 'invite_leave_root',
-          label: 'Ответить',
+          label: t('reply', lang),
           meta : {         
             toUser: { _id : author._id, name: author.name },
             ad: { _id  : ad._id, title: ad.title, photo: ad.photos?.[0] ?? null }
@@ -147,7 +147,7 @@ export const replyReview = async (req, res) => {
       text    : t('reply_on_review_notify', lang, { authorName: answer.author.name }),
       action  : {
         type : 'invite_reply_reply',
-        label: 'Ответить',
+        label: t('reply', lang),
         meta : {
           parentId : root._id.toString(),
           authorId : profileOwnerId,

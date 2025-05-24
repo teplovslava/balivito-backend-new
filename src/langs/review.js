@@ -48,7 +48,12 @@ export const messages = {
     id: 'Kesalahan server',
     bjn: 'Kasalahan server',
   },
-
+  reply: {
+    ru: "Ответить",
+    en: "Reply",
+    id: "Balas",
+    bjn: "Bales",
+  },
   review_left_notify: {
     en: 'You left a review for seller {targetName}: "{text}" — {rating}★',
     ru: 'Вы оставили отзыв продавцу {targetName}: «{text}» — {rating}★',
@@ -56,10 +61,10 @@ export const messages = {
     bjn: 'Pian sudah mamberian ulasan ka penjual {targetName}: "{text}" — {rating}★'
   },
   review_for_you_notify: {
-    en: '{authorName} left you a review',
-    ru: '{authorName} оставил вам отзыв',
-    id: '{authorName} memberikan Anda ulasan',
-    bjn: '{authorName} mamberian pian ulasan'
+ ru: '{authorName} оставил(-а) вам отзыв. Вы можете поделиться своим мнением о сотрудничестве с этим пользователем и оставить свой отзыв в ответ.',
+  en: '{authorName} has left you a review. You can share your own experience working with this user by leaving a review in response.',
+  id: '{authorName} telah memberikan ulasan untuk Anda. Anda dapat membagikan pengalaman Anda sendiri dengan pengguna ini dengan meninggalkan ulasan balasan.',
+  bjn: '{authorName} sudah mambahas ulasan untuk pian. Pian bisa jua mambahas ulasan balasan lawan pengalaman pian gasan pengguna ini.',
   },
   reply_left_notify: {
     en: 'You replied to user {targetName}: "{text}"',
