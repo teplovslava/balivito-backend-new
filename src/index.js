@@ -33,11 +33,7 @@ connectDB().then(async () => {
   await agenda.start(); // запуск Agenda
   defineReviewReminder(agenda); // регистрация задач
 
-  // await ensureSystemUser();
-
-  await ensureDefaultCategories();
-  await ensureDefaultLocations();
-
+  await ensureSystemUser();
   await runSeed();
 
   server.listen(PORT, () =>
