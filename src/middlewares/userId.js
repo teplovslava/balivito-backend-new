@@ -9,6 +9,8 @@ export const userIdMiddleware = async (req, res, next) => {
   const token = req.cookies.token;
   const refreshToken = req.cookies.refreshToken;
 
+  console.log(token, refreshToken)
+
   // 👉 1. Проверка access-токена
   if (token) {
     try {
