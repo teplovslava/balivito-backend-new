@@ -1,0 +1,110 @@
+export const messages = {
+  "user_exists": {
+    en: "A user with this email already exists",
+    ru: "Пользователь с таким email уже существует",
+    id: "Pengguna dengan email ini sudah terdaftar",
+    bjn: "Panganggo dengan email ini sudah kadaftar", // или дублируй id
+  },
+  "registered_check_email": {
+    en: "User registered. Please check your email.",
+    ru: "Пользователь зарегистрирован. Проверьте почту.",
+    id: "Pengguna terdaftar. Silakan cek email Anda.",
+    bjn: "Panganggo sudah kadaftar. Mangga cek email pian.",
+  },
+  "email_send_error": {
+    en: "Failed to send email. Please try again later.",
+    ru: "Ошибка отправки письма. Попробуйте позже.",
+    id: "Gagal mengirim email. Coba lagi nanti.",
+    bjn: "Galak mangirim email. Coba lagi sakedap.",
+  },
+  "server_error": {
+    en: "Server error",
+    ru: "Ошибка сервера",
+    id: "Kesalahan server",
+    bjn: "Kasalahan server",
+  },
+  "invalid_credentials": {
+    en: "Invalid email or password",
+    ru: "Неверный email или пароль",
+    id: "Email atau kata sandi salah",
+    bjn: "Email atau sandi salah",
+  },
+  "verify_email": {
+    en: "Please verify your email. Link resent.",
+    ru: "Подтвердите почту. Ссылка отправлена повторно.",
+    id: "Verifikasi email Anda. Tautan telah dikirim ulang.",
+    bjn: "Verifikasi email pian. Tautan sudah dikirim ulang.",
+  },
+  "user_not_found": {
+    en: "User not found",
+    ru: "Пользователь не найден",
+    id: "Pengguna tidak ditemukan",
+    bjn: "Panganggo kada ditemukan",
+  },
+  "email_already_verified": {
+    en: "Email is already verified",
+    ru: "Почта уже подтверждена",
+    id: "Email sudah diverifikasi",
+    bjn: "Email sudah diverifikasi",
+  },
+  "too_many_attempts": {
+    en: "Too many attempts. Please wait a minute.",
+    ru: "Слишком много попыток. Подождите минуту.",
+    id: "Terlalu banyak percobaan. Harap tunggu satu menit.",
+    bjn: "Tatinggi mencoba. Harap sabar satu menit.",
+  },
+  "too_many_verif_attempts": {
+    en: "Too many attempts. Please request a new code.",
+    ru: "Слишком много попыток. Запросите код повторно.",
+    id: "Terlalu banyak percobaan. Silakan minta kode baru.",
+    bjn: "Tatinggi mencoba. Minta kode anyar lawan admin.",
+  },
+  "verification_success": {
+    en: "Email successfully verified!",
+    ru: "Почта успешно подтверждена!",
+    id: "Email berhasil diverifikasi!",
+    bjn: "Email pian berhasil diverifikasi!",
+  },
+  "invalid_verification_code": {
+    en: "Invalid verification code",
+    ru: "Неверный код подтверждения",
+    id: "Kode verifikasi salah",
+    bjn: "Kode verifikasi salah",
+  },
+  "resend_email_sent": {
+    en: "Email resent",
+    ru: "Письмо отправлено повторно",
+    id: "Email dikirim ulang",
+    bjn: "Email dikirim ulang",
+  },
+  "email_already_verified_2": {
+    en: "Email is already verified",
+    ru: "Почта уже подтверждена",
+    id: "Email sudah diverifikasi",
+    bjn: "Email sudah diverifikasi",
+  },
+  "no_refresh_token": {
+    en: "No refresh token",
+    ru: "Нет refresh токена",
+    id: "Tidak ada refresh token",
+    bjn: "Kada ada refresh token",
+  },
+  "invalid_refresh_token": {
+    en: "Invalid refresh token",
+    ru: "Невалидный refresh токен",
+    id: "Refresh token tidak valid",
+    bjn: "Refresh token kada sah",
+  },
+  "tokens_refreshed": {
+    en: "Tokens refreshed",
+    ru: "Токены обновлены",
+    id: "Token diperbarui",
+    bjn: "Token diperbarui",
+  },
+  "logged_out": {
+    en: "You have logged out",
+    ru: "Вы вышли из аккаунта",
+    id: "Anda telah keluar",
+    bjn: "Pian sudah keluar akun",
+  },
+};

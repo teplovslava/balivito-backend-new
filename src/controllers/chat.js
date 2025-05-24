@@ -11,6 +11,11 @@ import User from "../models/User.js";
 import { sendPushNotification } from "../utils/sendPushNotification.js";
 import agenda from "../agenda/agendaInstance.js";
 import { getSystemUserId } from "../utils/getSystemUserId.js";
+import { ERROR_MESSAGES } from "../langs/chat.js";
+
+function getErrorMessage(key, lang = "en") {
+  return (ERROR_MESSAGES[key] && (ERROR_MESSAGES[key][lang] || ERROR_MESSAGES[key].en)) || key;
+}
 
 const enrichChat = (chat, userId) => {
   const companion = chat.participants.find((p) => p._id.toString() !== userId);
@@ -19,7 +24,7 @@ const enrichChat = (chat, userId) => {
   return {
     _id: chat._id,
     updatedAt: chat.updatedAt,
-    isSystemChat:chat.isSystemChat,
+    isSystemChat: chat.isSystemChat,
     lastMessage: {
       text: chat.lastMessage?.text || "",
       date: chat.lastMessage?.date || null,
@@ -38,6 +43,7 @@ const enrichChat = (chat, userId) => {
 
 export const getUserChats = async (socket, _data, callback) => {
   const userId = socket.userId;
+  const lang = req.language;
   try {
     const chats = await Chat.find({ participants: userId })
       .populate({ path: "ad", select: "title photos" })
@@ -53,7 +59,7 @@ export const getUserChats = async (socket, _data, callback) => {
     callback({ success: true, chats: enriched, totalUnread });
   } catch (err) {
     console.error(err);
-    callback({ success: false, error: "Ошибка при получении чатов" });
+    callback({ success: false, error: getErrorMessage("chat_fetch_error", lang) });
   }
 };
 
@@ -75,6 +81,7 @@ export const getMessages = async (
   { chatId, page = 1, limit = 20 },
   cb
 ) => {
+  const lang = req.language;
   try {
     const messages = await Message.find({ chatId })
       .sort({ createdAt: -1 })
@@ -98,7 +105,7 @@ export const getMessages = async (
     });
   } catch (err) {
     console.error(err);
-    cb({ success: false, error: "Ошибка при получении сообщений" });
+    cb({ success: false, error: getErrorMessage("message_fetch_error", lang) });
   }
 };
 
@@ -116,6 +123,7 @@ export const sendMessage = async (
   },
   callback
 ) => {
+  const lang = req.language;
   try {
     const senderId = socket.userId;
 
@@ -144,7 +152,7 @@ export const sendMessage = async (
       ) {
         return callback({
           success: false,
-          error: "Некорректное сообщение для ответа",
+          error: getErrorMessage("invalid_reply_message", lang),
         });
       }
     }
@@ -215,6 +223,7 @@ export const sendMessage = async (
         buyerId: senderId,
         sellerId: recipientId,
         adId,
+        lang
       });
     }
 
@@ -225,8 +234,6 @@ export const sendMessage = async (
       const fullChat = await Chat.findById(chat._id).populate("ad", "title photos");
       const adPhoto = fullChat.ad.photos?.[0]?.uri ?? "";
       const adName  = fullChat.ad.title;
-
-      console.log(fullChat)
 
       await sendPushNotification(
         recipient.expoPushToken,
@@ -246,7 +253,7 @@ export const sendMessage = async (
     callback({ success: true, newMessage, chatId: chat._id, isNewChat });
   } catch (err) {
     console.error("Ошибка при отправке сообщения:", err);
-    callback({ success: false, error: "Internal server error" });
+    callback({ success: false, error: getErrorMessage("internal_server_error", lang) });
   }
 };
 
@@ -287,23 +294,24 @@ export const readChat = async (socket, io, { chatId }) => {
 };
 
 export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
+  const lang = req.language;
   try {
     const userId = socket.userId;
     const message = await Message.findById(messageId).populate("sender");
-    if (!message) return cb({ success: false, error: "Сообщение не найдено" });
+    if (!message) return cb({ success: false, error: getErrorMessage("message_not_found", lang) });
 
     const senderId =
       message.sender._id?.toString?.() || message.sender.toString();
     if (senderId === userId.toString()) {
       return cb({
         success: false,
-        error: "Нельзя ставить реакцию на своё сообщение",
+        error: getErrorMessage("cannot_react_self", lang),
       });
     }
 
     const chat = await Chat.findById(message.chatId);
     if (!chat || !chat.participants.includes(userId)) {
-      return cb({ success: false, error: "Нет доступа к чату" });
+      return cb({ success: false, error: getErrorMessage("no_chat_access", lang) });
     }
 
     message.reaction = reaction || null;
@@ -318,18 +326,16 @@ export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
     cb({ success: true });
   } catch (err) {
     console.error("Ошибка при установке реакции:", err);
-    cb({ success: false, error: "Ошибка при установке реакции" });
+    cb({ success: false, error: getErrorMessage("reaction_set_error", lang) });
   }
 };
 
-/* ------------------------------------------------------------------ */
-/* 7. Загрузка фото                                                   */
-/* ------------------------------------------------------------------ */
 export const uploadChatPhotos = async (req, res) => {
+  const lang = req.language;uage || 'en';
   try {
     const userId = req.userId;
     if (!req.uploadedFiles || !req.uploadedFiles.length) {
-      return res.status(400).json({ message: "Файлы не были загружены" });
+      return res.status(400).json({ message: getErrorMessage("file_not_uploaded", lang) });
     }
     const photoData = req.uploadedFiles.map((f) => ({
       id: f._id,
@@ -340,45 +346,43 @@ export const uploadChatPhotos = async (req, res) => {
     res.status(201).json(photoData);
   } catch (err) {
     console.error("Ошибка при загрузке фото:", err);
-    res.status(500).json({ message: "Ошибка при загрузке изображений" });
+    res.status(500).json({ message: getErrorMessage("upload_error", lang) });
   }
 };
 
-/* ------------------------------------------------------------------ */
-/* 8. Удаление файла                                                  */
-/* ------------------------------------------------------------------ */
 export const deleteUploadedPhoto = async (req, res) => {
+  const lang = req.language;uage || 'en';
   try {
     const { id } = req.params;
     const file = await UploadedFile.findById(id);
-    if (!file) return res.status(404).json({ message: "Файл не найден" });
+    if (!file) return res.status(404).json({ message: getErrorMessage("file_not_found", lang) });
     if (file.author.toString() !== req.userId)
-      return res.status(403).json({ message: "Нет доступа" });
+      return res.status(403).json({ message: getErrorMessage("no_access", lang) });
 
     const filepath = path.join("uploads", file.filename);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
     await file.deleteOne();
-    res.json({ message: "Файл удалён" });
+    res.json({ message: getErrorMessage("file_deleted", lang) });
   } catch (err) {
     console.error("Ошибка при удалении фото:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("internal_server_error", lang) });
   }
 };
 
 export const deleteMessage = async (socket, io, { messageId }, cb) => {
+  const lang = req.language;
   try {
     const userId = socket.userId;
 
     const message = await Message.findById(messageId);
     if (!message) {
-      return cb({ success: false, error: "Сообщение не найдено" });
+      return cb({ success: false, error: getErrorMessage("message_not_found", lang) });
     }
 
-    // Только автор сообщения может удалить
     if (message.sender._id.toString() !== userId.toString()) {
       return cb({
         success: false,
-        error: "Вы не можете удалить это сообщение",
+        error: getErrorMessage("cannot_delete_message", lang),
       });
     }
 
@@ -386,7 +390,6 @@ export const deleteMessage = async (socket, io, { messageId }, cb) => {
 
     await message.deleteOne();
 
-    // Уведомление всех в чате
     io.to(chatId.toString()).emit("message_deleted", {
       messageId,
       chatId,
@@ -395,7 +398,7 @@ export const deleteMessage = async (socket, io, { messageId }, cb) => {
     cb({ success: true });
   } catch (err) {
     console.error("Ошибка при удалении сообщения:", err);
-    cb({ success: false, error: "Ошибка при удалении сообщения" });
+    cb({ success: false, error: getErrorMessage("message_delete_error", lang) });
   }
 };
 
@@ -405,19 +408,19 @@ export const editMessage = async (
   { messageId, text, mediaUrl },
   cb
 ) => {
+  const lang = req.language;
   try {
     const userId = socket.userId;
 
     const message = await Message.findById(messageId);
     if (!message) {
-      return cb({ success: false, error: "Сообщение не найдено" });
+      return cb({ success: false, error: getErrorMessage("message_not_found", lang) });
     }
 
-    // Проверка прав
     if (message.sender.toString() !== userId) {
       return cb({
         success: false,
-        error: "Вы не можете редактировать это сообщение",
+        error: getErrorMessage("cannot_edit_message", lang),
       });
     }
 
@@ -428,22 +431,18 @@ export const editMessage = async (
       Array.isArray(mediaUrl) &&
       JSON.stringify(mediaUrl) !== JSON.stringify(oldMediaUrls);
 
-    // Ничего не поменялось
     if (!hasTextChanged && !hasMediaChanged) {
-      return cb({ success: false, error: "Изменений не обнаружено" });
+      return cb({ success: false, error: getErrorMessage("no_changes", lang) });
     }
 
-    // Обновляем
     if (hasTextChanged) message.text = text;
     if (hasMediaChanged) message.mediaUrl = mediaUrl;
 
     message.isChanged = true;
     await message.save();
 
-    // Удаляем только удалённые изображения
     if (hasMediaChanged) {
       const deletedUris = oldMediaUrls.filter((uri) => !mediaUrl.includes(uri));
-
       const filesToDelete = await UploadedFile.find({
         uri: { $in: deletedUris },
       });
@@ -455,10 +454,8 @@ export const editMessage = async (
       }
     }
 
-    // Повторный populate
     await message.populate({ path: "sender", select: "name avatar" });
 
-    // Оповещение всех участников чата
     io.to(message.chatId.toString()).emit("message_updated", {
       messageId: message._id,
       chatId: message.chatId,
@@ -470,12 +467,12 @@ export const editMessage = async (
     cb({ success: true, message });
   } catch (err) {
     console.error("Ошибка при редактировании сообщения:", err);
-    cb({ success: false, error: "Ошибка при редактировании сообщения" });
+    cb({ success: false, error: getErrorMessage("message_edit_error", lang) });
   }
 };
 
 export const typeMessage = (socket, io, { chatId, isTyping }) => {
-  if(chatId) {
+  if (chatId) {
     socket.to(chatId.toString()).emit("typing", {
       chatId,
       userId: socket.userId,

@@ -9,17 +9,29 @@ import { sendPushNotification } from '../utils/sendPushNotification.js';
 import { getIo                } from '../utils/ioHolder.js';
 import { buildChatPayload     } from '../utils/buildChatNotificationPayload.js';
 
+import {
+  REMINDER_TEXTS,
+  LEAVE_REVIEW_LABEL,
+  SYSTEM_MESSAGE_TITLE
+} from '../langs/agenda.js'
+
+
+// Получить язык пользователя или задачи
+function getUserLang(jobLang) {
+  return jobLang || 'en';
+}
+
 export default (agenda) => {
   agenda.define('send review reminder to buyer', async (job) => {
     try {
       const SYSTEM_USER_ID = getSystemUserId();
       const SYSTEM_NAME    = 'BALIVITO';
 
-      const { buyerId, sellerId, adId } = job.attrs.data;
-      if (!buyerId || !sellerId || !adId)                           return;
-      if ([buyerId, sellerId].includes(SYSTEM_USER_ID))            return;
+      const { buyerId, sellerId, adId, lang: jobLang } = job.attrs.data;
+      if (!buyerId || !sellerId || !adId) return;
+      if ([buyerId, sellerId].includes(SYSTEM_USER_ID)) return;
 
-      /* ───── сущности ───── */
+      // ───── сущности ─────
       const [buyer, seller, ad] = await Promise.all([
         User.findById(buyerId),
         User.findById(sellerId),
@@ -27,7 +39,16 @@ export default (agenda) => {
       ]);
       if (!buyer || !seller || !ad) return;
 
-      /* покупатель уже оставил root-отзыв этому продавцу? */
+      // --- определяем язык ---
+      const lang = getUserLang(jobLang);
+
+      // --- тексты и label ---
+      const reminderText = REMINDER_TEXTS[lang]?.(seller.name, ad.title)
+        || REMINDER_TEXTS['en'](seller.name, ad.title);
+      const labelText = LEAVE_REVIEW_LABEL[lang] || LEAVE_REVIEW_LABEL['en'];
+      const systemMessageTitle = SYSTEM_MESSAGE_TITLE[lang] || SYSTEM_MESSAGE_TITLE['en'];
+
+      // покупатель уже оставил root-отзыв этому продавцу?
       const alreadyLeft = await Review.exists({
         author: buyerId,
         target: sellerId,
@@ -36,10 +57,10 @@ export default (agenda) => {
       });
       if (alreadyLeft) return;
 
-      /* ───── систем-чат покупателя ───── */
+      // ───── систем-чат покупателя ─────
       const { systemChat, wasCreated } = await getSystemChatForUser(buyerId);
 
-      /* такое напоминание уже было? */
+      // такое напоминание уже было?
       const duplication = await Message.exists({
         chatId: systemChat._id,
         'action.type'          : 'invite_leave_root',
@@ -48,23 +69,24 @@ export default (agenda) => {
       });
       if (duplication) return;
 
-      /* ───── создаём message-invite ───── */
+      // ───── создаём message-invite ─────
       const message = await Message.create({
         chatId : systemChat._id,
         sender : SYSTEM_USER_ID,
-        text   : 'Пожалуйста, оставьте отзыв о продавце',
+        text   : reminderText,
         mediaUrl: [],
         action : {
-          type : 'invite_leave_root',            // ← новый тип
-          label: 'Оставить отзыв',
+          type : 'invite_leave_root',
+          label: labelText,
           meta : {
+            isSeller: true,
             toUser: { _id: seller._id, name: seller.name },
             ad:     { _id: ad._id, title: ad.title, photo: ad.photos?.[0] ?? null },
           },
         },
       });
 
-      /* lastMessage / unreadCounts */
+      // lastMessage / unreadCounts
       systemChat.lastMessage = { text: message.text, date: message.createdAt };
       systemChat.unreadCounts.set(
         buyerId.toString(),
@@ -72,7 +94,7 @@ export default (agenda) => {
       );
       await systemChat.save();
 
-      /* ───── сокеты ───── */
+      // ───── сокеты ─────
       const chatDto = {
         _id: systemChat._id,
         updatedAt: systemChat.updatedAt,
@@ -93,7 +115,6 @@ export default (agenda) => {
       const io = getIo();
       if (io) {
         io.in(`user:${buyerId}`).socketsJoin(systemChat._id.toString());
-
         if (wasCreated) {
           io.to(`user:${buyerId}`).emit('new_chat', chatDto);
         } else {
@@ -101,12 +122,12 @@ export default (agenda) => {
         }
       }
 
-      /* ───── push-уведомление ───── */
+      // ───── push-уведомление ─────
       if (buyer.expoPushToken) {
         await sendPushNotification(
           buyer.expoPushToken,
-          'Пожалуйста, оставьте отзыв о продавце',
-          'Системное сообщение',
+          reminderText,
+          systemMessageTitle,
           buildChatPayload({
             chatId       : systemChat._id,
             ad,
@@ -117,7 +138,7 @@ export default (agenda) => {
         );
       }
 
-      console.log(`✅ Напоминание отправлено покупателю ${buyerId}`);
+      console.log(`✅ Review reminder sent to buyer ${buyerId} [${lang}]`);
     } catch (err) {
       console.warn('⚠️ reviewReminder:', err.message);
     }

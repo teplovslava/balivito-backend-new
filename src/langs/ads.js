@@ -1,0 +1,86 @@
+export const messages = {
+  "missing_price": {
+    en: "Please specify at least one price: usd, idr, or rub",
+    ru: "Укажите хотя бы одну цену: usd, idr или rub",
+    id: "Tentukan setidaknya satu harga: usd, idr, atau rub",
+    bjn: "Tentukan sabumi satu harga: usd, idr, atawa rub",
+  },
+  "duplicate_ad": {
+    en: "It looks like this ad already exists",
+    ru: "Похоже, такое объявление уже существует",
+    id: "Iklan ini sudah ada",
+    bjn: "Iklan ini sudah ada",
+  },
+  "invalid_user": {
+    en: "Invalid user",
+    ru: "Некорректный пользователь",
+    id: "Pengguna tidak valid",
+    bjn: "Panganggo kada sah",
+  },
+  "invalid_id": {
+    en: "Invalid ID",
+    ru: "Некорректный ID",
+    id: "ID tidak valid",
+    bjn: "ID kada sah",
+  },
+  "ad_not_found": {
+    en: "Ad not found",
+    ru: "Объявление не найдено",
+    id: "Iklan tidak ditemukan",
+    bjn: "Iklan kada ditemukan",
+  },
+  "no_access": {
+    en: "No access",
+    ru: "Нет доступа",
+    id: "Tidak ada akses",
+    bjn: "Kada kawa masuk",
+  },
+  "edit_no_rights": {
+    en: "No rights to edit",
+    ru: "Нет прав на редактирование",
+    id: "Tidak ada hak untuk mengedit",
+    bjn: "Kada kawa ngedit",
+  },
+  "must_have_price": {
+    en: "Please specify at least one price",
+    ru: "Укажите хотя бы одну цену",
+    id: "Tentukan setidaknya satu harga",
+    bjn: "Tentukan sabumi satu harga",
+  },
+  "unknown_user": {
+    en: "Unknown user",
+    ru: "Неизвестный пользователь",
+    id: "Pengguna tidak dikenal",
+    bjn: "Panganggo kada dikenal",
+  },
+  "ad_archived": {
+    en: "Ad archived",
+    ru: "Объявление архивировано",
+    id: "Iklan diarsipkan",
+    bjn: "Iklan diarsipakan",
+  },
+  "ad_restored": {
+    en: "Ad restored from archive",
+    ru: "Объявление восстановлено из архива",
+    id: "Iklan dipulihkan dari arsip",
+    bjn: "Iklan diangkat dari arsip",
+  },
+  "no_archive_rights": {
+    en: "No rights to archive this ad",
+    ru: "Нет прав на архивирование этого объявления",
+    id: "Tidak ada hak untuk mengarsipkan iklan ini",
+    bjn: "Kada kawa ngarsipakan iklan ini",
+  },
+  "no_restore_rights": {
+    en: "No rights to restore this ad",
+    ru: "Нет прав на восстановление этого объявления",
+    id: "Tidak ada hak untuk memulihkan iklan ini",
+    bjn: "Kada kawa nangangkat iklan ini dari arsip",
+  },
+  "server_error": {
+    en: "Server error",
+    ru: "Ошибка сервера",
+    id: "Kesalahan server",
+    bjn: "Kasalahan server",
+  },
+};

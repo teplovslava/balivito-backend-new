@@ -2,45 +2,50 @@ import Review  from '../models/Review.js';
 import User    from '../models/User.js';
 import Ad      from '../models/Ad.js';
 
+import { messages } from '../langs/review.js';
 import { getSystemChatForUser }  from '../utils/getSystemChat.js';
 import { sendSystemInvite      } from '../utils/sendSystemInvite.js';
 import { updateInviteAsDone    } from '../utils/updateInviteAsDone.js';
 
-/* ══════════════════════════════════════════════════════════════ */
-/* 1.  ДОБАВИТЬ КОРНЕВОЙ ОТЗЫВ  –  POST /reviews/:targetId        */
-/* ══════════════════════════════════════════════════════════════ */
+// --- Хелпер для языка и шаблонов ---
+function getLang(req) {
+  return req.language || 'en';
+}
+function t(key, lang, vars = {}) {
+  let template = messages[key]?.[lang] || messages[key]?.en || '';
+  return template.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+}
+
+/* 1. ДОБАВИТЬ КОРНЕВОЙ ОТЗЫВ */
 export const addReview = async (req, res) => {
   try {
+    const lang = getLang(req);
     const authorId = req.userId;
     const targetId = req.params.targetId;
     const { text, rating, adId } = req.body;
 
     if (!authorId || authorId === targetId)
-      return res.status(400).json({ message: 'Некорректные параметры' });
+      return res.status(400).json({ message: t('invalid_params', lang) });
 
-    /* — проверяем дубликат — */
     const duplicate = await Review.exists({
       author: authorId, target: targetId, ad: adId, parent: null,
     });
     if (duplicate)
-      return res.status(409).json({ message: 'Вы уже оставляли отзыв по этому объявлению' });
+      return res.status(409).json({ message: t('already_reviewed', lang) });
 
-    /* — сущности — */
     const [author, target, ad] = await Promise.all([
       User.findById(authorId),
       User.findById(targetId),
       Ad.findById(adId).select('title photos'),
     ]);
     if (!author || !target || !ad)
-      return res.status(404).json({ message: 'Данные не найдены' });
+      return res.status(404).json({ message: t('not_found', lang) });
 
-    /* — создаём отзыв — */
     const review = await Review.create({
-      author: authorId, target: targetId, ad: adId,
-      text, rating, parent: null,
+      author: authorId, target: targetId, ad: adId, text, rating, parent: null,
     });
 
-    /* — рейтинг + счётчик — */
+    // --- рейтинг и счетчик ---
     const [agg] = await Review.aggregate([
       { $match: { target: target._id, parent: null } },
       { $group: { _id: null, avg: { $avg: '$rating' }, cnt: { $sum: 1 } } },
@@ -49,35 +54,27 @@ export const addReview = async (req, res) => {
     target.reviewsCount = agg?.cnt || 1;
     await target.save();
 
-    /* — гасим “приглашение оставить отзыв”, если было — */
+    // --- системный чат ---
     const { systemChat: authorChat } = await getSystemChatForUser(authorId);
     await updateInviteAsDone({
       chat  : authorChat,
       filter: { 'action.type': 'invite_leave_root', 'action.meta.ad._id': ad._id },
-      newText: `Вы оставили отзыв продавцу ${target.name}: «${text}» — ${rating}★`,
+      newText: t('review_left_notify', lang, { targetName: target.name, text, rating }),
     });
 
-    /* — отправляем приглашение target-у, если он ещё не ответил — */
     const reciprocal = await Review.exists({
       author: targetId, target: authorId, ad: adId, parent: null,
     });
     if (!reciprocal) {
       await sendSystemInvite({
         targetId: targetId,
-        text    : `${author.name} оставил вам отзыв`,
+        text    : t('review_for_you_notify', lang, { authorName: author.name }),
         action  : {
           type : 'invite_leave_root',
           label: 'Ответить',
           meta : {         
-            toUser: {                     // ← то, что ждёт фронт
-              _id : author._id,
-              name: author.name,
-            },
-            ad: {                         // ← и информация об объявлении
-              _id  : ad._id,
-              title: ad.title,
-              photo: ad.photos?.[0] ?? null,
-            }, 
+            toUser: { _id : author._id, name: author.name },
+            ad: { _id  : ad._id, title: ad.title, photo: ad.photos?.[0] ?? null }
           },
         },
       });
@@ -85,38 +82,31 @@ export const addReview = async (req, res) => {
 
     return res.status(201).json(review);
   } catch (e) {
+    const lang = getLang(req);
     console.error('addReview', e);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: t('server_error', lang) });
   }
 };
 
-
-/* ══════════════════════════════════════════════════════════════ */
-/* 2.  ОТВЕТ НА ОТЗЫВ  –  POST /reviews/:parentId/reply           */
-/* ══════════════════════════════════════════════════════════════ */
-// controllers/reviewController.js
-/* controllers/reviewController.js */
-
-// controllers/reviewController.js
+/* 2. ОТВЕТ НА ОТЗЫВ */
 export const replyReview = async (req, res) => {
   try {
-    const authorId = req.userId;           // кто отвечает
-    const parentId = req.params.parentId;  // на что отвечаем
+    const lang = getLang(req);
+    const authorId = req.userId;
+    const parentId = req.params.parentId;
     const { text } = req.body;
 
-    /* ─── исходное сообщение ─── */
     const parent = await Review.findById(parentId).populate('ad target');
-    if (!parent) return res.status(404).json({ message: 'Отзыв не найден' });
+    if (!parent)
+      return res.status(404).json({ message: t('review_not_found', lang) });
 
-    /* ─── проверка права ─── */
     if (
       authorId !== parent.author.toString() &&
       authorId !== parent.target._id.toString()
     ) {
-      return res.status(403).json({ message: 'Нет прав' });
+      return res.status(403).json({ message: t('no_rights', lang) });
     }
 
-    /* ─── корень треда + владелец отзывов ─── */
     const root = parent.parent
       ? await Review.findById(parent.parent).select('target')
       : parent;
@@ -126,14 +116,13 @@ export const replyReview = async (req, res) => {
         ? root.target._id.toString()
         : root.target.toString();
 
-    /* ─── создаём ответ ─── */
     const answer = await Review.create({
       author: authorId,
       target: parent.author.toString() === authorId ? parent.target : parent.author,
       ad    : parent.ad,
       text,
       rating: null,
-      parent: root._id,                      // всегда корневой
+      parent: root._id,
     });
 
     await answer.populate([
@@ -141,61 +130,51 @@ export const replyReview = async (req, res) => {
       { path: 'target', select: 'name' },
     ]);
 
-    /* ─── гасим СВОЁ приглашение «Ответить» ─── */
     const { systemChat: authorChat } = await getSystemChatForUser(authorId);
-
-    /* какой тип нужно закрыть? */
     const closeFilter = {
-            'action.type'           : 'invite_reply_reply',
-            'action.meta.parentId'  : root._id.toString(),
-          }
+      'action.type'          : 'invite_reply_reply',
+      'action.meta.parentId' : root._id.toString(),
+    };
 
     await updateInviteAsDone({
       chat   : authorChat,
       filter : closeFilter,
-      newText: `Вы ответили пользователю ${answer.target.name}: «${text}»`,
+      newText: t('reply_left_notify', lang, { targetName: answer.target.name, text }),
     });
 
-    /* ─── новое приглашение адресату ─── */
     await sendSystemInvite({
-      targetId: answer.target._id,               // теперь очередь собеседника
-      text    : `${answer.author.name} ответил(а) на ваш отзыв`,
+      targetId: answer.target._id,
+      text    : t('reply_on_review_notify', lang, { authorName: answer.author.name }),
       action  : {
         type : 'invite_reply_reply',
         label: 'Ответить',
         meta : {
-          parentId : root._id.toString(),        // открываем тред с корня
-          authorId : profileOwnerId,             // владелец отзывов
+          parentId : root._id.toString(),
+          authorId : profileOwnerId,
         },
       },
     });
 
     return res.status(201).json(answer);
   } catch (e) {
+    const lang = getLang(req);
     console.error('replyReview', e);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: t('server_error', lang) });
   }
 };
 
-
-
-/* ---------------------------------------------------------- *
- * 3. Список отзывов пользователя                             *
- * ---------------------------------------------------------- */
-// controllers/reviewController.js
-
+/* 3. Список отзывов пользователя */
 export const listReviews = async (req, res) => {
   try {
+    const lang = getLang(req);
     const { targetId } = req.params;
     const page  = +req.query.page  || 1;
     const limit = +req.query.limit || 10;
 
-    /* ─── 1. находим пользователя, чтобы взять name ─── */
     const targetUser = await User.findById(targetId).select('name');
     if (!targetUser)
-      return res.status(404).json({ message: 'Пользователь не найден' });
+      return res.status(404).json({ message: t('user_not_found', lang) });
 
-    /* ─── 2. отзывы + ответы ─── */
     const [items, total] = await Promise.all([
       Review.find({ target: targetId, parent: null })
             .sort({ createdAt: -1 })
@@ -218,9 +197,8 @@ export const listReviews = async (req, res) => {
       Review.countDocuments({ target: targetId, parent: null }),
     ]);
 
-    /* ─── 3. формируем ответ ─── */
     res.json({
-      user: { _id: targetUser._id, name: targetUser.name },   // ← имя адресата
+      user: { _id: targetUser._id, name: targetUser.name },
       items,
       pagination: {
         total,
@@ -230,28 +208,25 @@ export const listReviews = async (req, res) => {
       },
     });
   } catch (e) {
+    const lang = getLang(req);
     console.error('listReviews', e);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: t('server_error', lang) });
   }
 };
 
-
-/* ---------------------------------------------------------- *
- * 4. Удаление отзыва / ответа                                *
- * ---------------------------------------------------------- */
+/* 4. Удаление отзыва / ответа */
 export const deleteReview = async (req, res) => {
   try {
+    const lang = getLang(req);
     const review = await Review.findById(req.params.reviewId);
-    if (!review) return res.status(404).json({ message: 'Не найдено' });
+    if (!review) return res.status(404).json({ message: t('not_found', lang) });
     if (review.author.toString() !== req.userId)
-      return res.status(403).json({ message: 'Нет прав' });
+      return res.status(403).json({ message: t('no_rights', lang) });
 
-    const isRoot = !review.parent;          // корневой?
-
-    const targetId = review.target;         // пользователь, чей рейтинг считаем позже
+    const isRoot = !review.parent;
+    const targetId = review.target;
     await review.deleteOne();
 
-    /* если удалили корневой - пересчитываем рейтинг и количество */
     if (isRoot) {
       const [agg] = await Review.aggregate([
         { $match: { target: targetId, parent: null } },
@@ -263,32 +238,32 @@ export const deleteReview = async (req, res) => {
           },
         },
       ]);
-
       await User.findByIdAndUpdate(targetId, {
         rating      : +(agg?.avg?.toFixed(1) || 0),
         reviewsCount: agg?.cnt || 0,
       });
     }
 
-    return res.json({ message: 'Удалено' });
+    return res.json({ message: t('deleted', lang) });
   } catch (e) {
+    const lang = getLang(req);
     console.error('deleteReview', e);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: t('server_error', lang) });
   }
 };
 
-/* ---------------------------------------------------------- *
- * 5. Рейтинг + количество отзывов (корневых)                  *
- *    GET /reviews/summary/:userId                            *
- * ---------------------------------------------------------- */
+/* 5. Рейтинг + количество отзывов (корневых) */
 export const userReviewsSummary = async (req, res) => {
   try {
+    const lang = getLang(req);
     const user = await User.findById(req.params.userId).select('rating reviewsCount');
-    if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+    if (!user)
+      return res.status(404).json({ message: t('user_not_found', lang) });
 
     res.json({ rating: user.rating, reviewsCount: user.reviewsCount });
   } catch (e) {
+    const lang = getLang(req);
     console.error('userReviewsSummary', e);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: t('server_error', lang) });
   }
 };

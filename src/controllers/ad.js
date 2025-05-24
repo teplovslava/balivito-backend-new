@@ -4,53 +4,43 @@ import path from "path";
 import Ad from "../models/Ad.js";
 import UploadedFile from "../models/UploadFile.js";
 import User from "../models/User.js";
-import {
-  jaccardSimilarity,
-  SIMILARITY_THRESHOLD,
-} from "../utils/checkTitle.js";
+import { jaccardSimilarity, SIMILARITY_THRESHOLD } from "../utils/checkTitle.js";
 import { escapeRegExp } from "../utils/escapeRegExp.js";
 import { getPaginatedAds } from "../utils/getPaginatedAds.js";
+import { messages } from "../langs/ads.js";
 
-// --- ХЕЛПЕР: Получить имя поля на нужном языке (category, location)
+function getErrorMessage(key, lang = "en") {
+  return (messages[key] && messages[key][lang]) || (messages[key] && messages[key].en) || key;
+}
+
 function getNameByLang(field, lang = 'en') {
   if (!field) return '';
-
-  // Если пришел просто строкой
   if (typeof field === 'string') return field;
-
-  // Если это Map (instanceof Map)
   if (field instanceof Map) {
     return field.get(lang) || field.get('en') || '';
   }
-
-  // Если это объект { name: { ... } }
   if (field.name && typeof field.name === 'object') {
-    // Map или Object
     if (field.name instanceof Map) {
       return field.name.get(lang) || field.name.get('en') || '';
     }
     return field.name[lang] || field.name['en'] || '';
   }
-
-  // Если это обычный объект { en: '...', ... }
   if (typeof field === 'object') {
     return field[lang] || field['en'] || '';
   }
-
   return '';
 }
 
-// --- ХЕЛПЕР: Трансформировать объявление для выдачи клиенту
 function transformAd(ad, lang = 'en') {
   const plainAd = ad.toObject ? ad.toObject() : ad;
   return {
     ...plainAd,
-    category: {
+    category: plainAd.category && {
       id: plainAd.category._id,
       slug: plainAd.category.slug,
       name: getNameByLang(plainAd.category, lang)
     },
-    location: {
+    location: plainAd.location && {
       id: plainAd.location._id,
       slug: plainAd.location.slug,
       name: getNameByLang(plainAd.location, lang)
@@ -59,6 +49,7 @@ function transformAd(ad, lang = 'en') {
 }
 
 export const createAd = async (req, res) => {
+  const lang = req.language || 'en';
   try {
     const { title, description, price, category, location } = req.body;
     const { usd, idr, rub } = price || {};
@@ -66,7 +57,7 @@ export const createAd = async (req, res) => {
     if (usd == undefined && idr == undefined && rub == undefined) {
       return res
         .status(400)
-        .json({ message: "Укажите хотя бы одну цену: usd, idr или rub" });
+        .json({ message: getErrorMessage("missing_price", lang) });
     }
 
     const existingAds = await Ad.find({ author: req.userId, category }).select("title");
@@ -77,7 +68,7 @@ export const createAd = async (req, res) => {
 
     if (dublicate) {
       return res.status(409).json({
-        message: "Похоже, такое объявление уже существует",
+        message: getErrorMessage("duplicate_ad", lang),
         ad: dublicate,
       });
     }
@@ -101,29 +92,26 @@ export const createAd = async (req, res) => {
 
     const savedAd = await newAd.save();
 
-    // Пополняем связки и возвращаем трансформированный ad
     const populatedAd = await savedAd
       .populate("category", "-__v")
       .populate("location")
       .populate("author", "-password -__v -createdAt -updatedAt")
       .execPopulate?.() || savedAd;
 
-    const lang = req.language || 'en';
     res.status(201).json(transformAd(populatedAd, lang));
   } catch (error) {
     console.error("Ошибка создания объявления:", error);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
 
 export const getMyAds = async (req, res) => {
+  const lang = req.language || 'en';
   try {
     const userId = req.userId;
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Некорректный пользователь" });
+      return res.status(400).json({ message: getErrorMessage("invalid_user", lang) });
     }
-
-    // Параметры запроса
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const sortField = req.query.sort || "createdAt";
@@ -139,24 +127,24 @@ export const getMyAds = async (req, res) => {
       extraFields: "favoriteCount isArchived",
     });
 
-    const lang = req.language || 'en';
     return res.json({
       items: ads.map(ad => transformAd(ad, lang)),
       pagination,
     });
   } catch (err) {
     console.error("Ошибка получения моих объявлений:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
 
 export const getAdById = async (req, res) => {
+  const lang = req.language || 'en';
   try {
     const { id } = req.params;
     const viewerId = req.userId;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Некорректный ID" });
+      return res.status(400).json({ message: getErrorMessage("invalid_id", lang) });
     }
 
     const ad = await Ad.findById(id)
@@ -165,7 +153,7 @@ export const getAdById = async (req, res) => {
       .populate("location");
 
     if (!ad) {
-      return res.status(404).json({ message: "Объявление не найдено" });
+      return res.status(404).json({ message: getErrorMessage("ad_not_found", lang) });
     }
 
     if (viewerId && !ad.viewerIds.includes(viewerId)) {
@@ -173,32 +161,31 @@ export const getAdById = async (req, res) => {
       await ad.save();
     }
 
-    await User.findByIdAndUpdate(viewerId, {
-      $push: {
-        viewedHistory: {
-          $each: [
-            {
-              ad: ad._id,
-              category: ad.category._id,
-              location: ad.location._id,
-              viewedAt: new Date(),
-            },
-          ],
-          $position: 0,
-          $slice: 10,
+    if (viewerId) {
+      await User.findByIdAndUpdate(viewerId, {
+        $push: {
+          viewedHistory: {
+            $each: [
+              {
+                ad: ad._id,
+                category: ad.category._id,
+                location: ad.location._id,
+                viewedAt: new Date(),
+              },
+            ],
+            $position: 0,
+            $slice: 10,
+          },
         },
-      },
-    });
+      });
+    }
 
     let isFavorite = false;
     if (viewerId) {
-      console.log(viewerId)
       const user = await User.findById(viewerId).select("favorites");
-      isFavorite =
-        user.favorites.findIndex((fav) => fav.toString() === id.toString()) > -1;
+      isFavorite = !!(user && user.favorites.findIndex((fav) => fav.toString() === id.toString()) > -1);
     }
 
-    const lang = req.language || 'en';
     res.status(200).json({
       ...transformAd(ad, lang),
       views: ad.viewerIds.length,
@@ -206,11 +193,12 @@ export const getAdById = async (req, res) => {
     });
   } catch (err) {
     console.error("Ошибка получения объявления:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
 
 export const getAds = async (req, res) => {
+  const lang = req.language || 'en';
   try {
     const {
       page = 1,
@@ -274,8 +262,6 @@ export const getAds = async (req, res) => {
       totalPages: Math.ceil(total / Number(limit)),
     };
 
-    const lang = req.language || 'en';
-
     res.json({
       items: ads.map(ad => transformAd(ad, lang)),
       pagination,
@@ -303,21 +289,22 @@ export const getAds = async (req, res) => {
     }
   } catch (err) {
     console.error("Ошибка получения объявлений:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
 
 export const deleteAd = async (req, res) => {
+  const lang = req.language || 'en';
   try {
     const { id } = req.params;
 
     const ad = await Ad.findById(id);
     if (!ad) {
-      return res.status(404).json({ message: "Объявление не найдено" });
+      return res.status(404).json({ message: getErrorMessage("ad_not_found", lang) });
     }
 
     if (ad.author.toString() !== req.userId) {
-      return res.status(403).json({ message: "Нет доступа" });
+      return res.status(403).json({ message: getErrorMessage("no_access", lang) });
     }
 
     if (ad.photos && ad.photos.length > 0) {
@@ -326,41 +313,41 @@ export const deleteAd = async (req, res) => {
         if (fs.existsSync(localPath)) {
           fs.unlinkSync(localPath);
         }
-
         await UploadedFile.deleteOne({ _id: photo.id, author: req.userId });
       }
     }
 
     await ad.deleteOne();
 
-    res.json({ message: "Объявление и связанные фото удалены" });
+    res.json({ message: getErrorMessage("ad_archived", lang) });
   } catch (err) {
     console.error("Ошибка удаления объявления:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
 
 export const updateAd = async (req, res) => {
+  const lang = req.language || 'en';
   try {
     const { id } = req.params;
     const { price } = req.body;
     const { usd, idr, rub } = price || {};
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Некорректный ID объявления" });
+      return res.status(400).json({ message: getErrorMessage("invalid_id", lang) });
     }
 
     const ad = await Ad.findById(id);
     if (!ad) {
-      return res.status(404).json({ message: "Объявление не найдено" });
+      return res.status(404).json({ message: getErrorMessage("ad_not_found", lang) });
     }
 
     if (ad.author.toString() !== req.userId) {
-      return res.status(403).json({ message: "Нет прав на редактирование" });
+      return res.status(403).json({ message: getErrorMessage("edit_no_rights", lang) });
     }
 
     if (price && usd == null && idr == null && rub == null) {
-      return res.status(400).json({ message: "Укажите хотя бы одну цену" });
+      return res.status(400).json({ message: getErrorMessage("must_have_price", lang) });
     }
 
     ["title", "description", "category", "location"].forEach((field) => {
@@ -374,9 +361,7 @@ export const updateAd = async (req, res) => {
       if (rub !== undefined) ad.price.rub = rub;
     }
 
-    // Обработка фотографий через req.uploadedFiles
     if (Array.isArray(req.uploadedFiles) && req.uploadedFiles.length > 0) {
-      // ✅ НЕ удаляем старые — потому что они уже повторно прикреплены и обработаны
       ad.photos = req.uploadedFiles.map((file) => ({
         id: file._id,
         uri: file.uri,
@@ -385,21 +370,22 @@ export const updateAd = async (req, res) => {
     }
 
     const updated = await ad.save();
-    res.json(updated);
+    res.json(transformAd(updated, lang));
   } catch (err) {
     console.error("Ошибка при редактировании:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
 
 export const getRecommendedAds = async (req, res) => {
+  const lang = req.language || 'en';
   try {
     const userId = req.userId;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 30;
 
     if (!userId) {
-      return res.status(400).json({ message: "Неизвестный пользователь" });
+      return res.status(400).json({ message: getErrorMessage("unknown_user", lang) });
     }
 
     const user = await User.findById(userId);
@@ -414,7 +400,6 @@ export const getRecommendedAds = async (req, res) => {
       });
       const favoriteSet = new Set(favorites.map((fav) => fav.toString()));
 
-      const lang = req.language || 'en';
       const items = ads.map((ad) => ({
         ...transformAd(ad, lang),
         isFavorite: favoriteSet.has(ad._id.toString()),
@@ -465,7 +450,6 @@ export const getRecommendedAds = async (req, res) => {
     const { ads, pagination } = await getPaginatedAds({ filter, page, limit });
 
     const favoriteSet = new Set(favorites.map((fav) => fav.toString()));
-    const lang = req.language || 'en';
     const items = ads.map((ad) => ({
       ...transformAd(ad, lang),
       isFavorite: favoriteSet.has(ad._id.toString()),
@@ -474,7 +458,7 @@ export const getRecommendedAds = async (req, res) => {
     res.json({ items, pagination });
   } catch (err) {
     console.error("Ошибка получения рекомендаций:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
 
@@ -515,53 +499,54 @@ export const getSearchSuggestions = async (req, res) => {
     res.json(suggestions.map((s) => s.title));
   } catch (err) {
     console.error("Ошибка подсказок:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", req.language || 'en') });
   }
 };
 
 export const archiveAd = async (req, res) => {
+  const lang = req.language || 'en';
   try {
     const { id } = req.params;
 
     const ad = await Ad.findById(id);
-    if (!ad) return res.status(404).json({ message: "Объявление не найдено" });
+    if (!ad) return res.status(404).json({ message: getErrorMessage("ad_not_found", lang) });
 
     if (ad.author.toString() !== req.userId) {
       return res
         .status(403)
-        .json({ message: "Нет прав на архивирование этого объявления" });
+        .json({ message: getErrorMessage("no_archive_rights", lang) });
     }
 
     ad.isArchived = true;
     await ad.save();
 
-    res.json({ message: "Объявление архивировано", ad });
+    res.json({ message: getErrorMessage("ad_archived", lang), ad: transformAd(ad, lang) });
   } catch (err) {
     console.error("Ошибка архивирования объявления:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
 
 export const unarchiveAd = async (req, res) => {
+  const lang = req.language || 'en';
   try {
     const { id } = req.params;
 
     const ad = await Ad.findById(id);
-    if (!ad) return res.status(404).json({ message: "Объявление не найдено" });
+    if (!ad) return res.status(404).json({ message: getErrorMessage("ad_not_found", lang) });
 
     if (ad.author.toString() !== req.userId) {
       return res
         .status(403)
-        .json({ message: "Нет прав на восстановление этого объявления" });
+        .json({ message: getErrorMessage("no_restore_rights", lang) });
     }
 
     ad.isArchived = false;
     await ad.save();
 
-    res.json({ message: "Объявление восстановлено из архива", ad });
+    res.json({ message: getErrorMessage("ad_restored", lang), ad: transformAd(ad, lang) });
   } catch (err) {
     console.error("Ошибка восстановления объявления:", err);
-    res.status(500).json({ message: "Ошибка сервера" });
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
-
