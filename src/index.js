@@ -11,8 +11,6 @@ import defineReviewReminder from "./agenda/reviewReminder.js";
 import { ensureSystemUser } from "./scripts/initSystemUser.js";
 import { setIo } from "./utils/ioHolder.js";
 import { runSeed } from "./scripts/user.js";
-import { ensureDefaultCategories } from "./scripts/category.js";
-import { ensureDefaultLocations } from "./scripts/locations.js";
 
 dotenv.config();
 
