@@ -1,12 +1,11 @@
 import mongoose from "mongoose";
 
-const categorySchema = new mongoose.Schema(
+const locationSchema = new mongoose.Schema(
   {
     name: {
-      type: String,
+      type: Map,
+      of: String,
       required: true,
-      unique: true,
-      trim: true,
     },
     slug: {
       type: String,
@@ -23,4 +22,4 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Location", categorySchema);
+export default mongoose.model("Location", locationSchema);
