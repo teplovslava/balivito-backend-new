@@ -45,8 +45,16 @@ function transformAd(ad, lang = 'en') {
   const plainAd = ad.toObject ? ad.toObject() : ad;
   return {
     ...plainAd,
-    category: getNameByLang(plainAd.category, lang),
-    location: getNameByLang(plainAd.location, lang),
+    category: {
+      id: plainAd.category._id,
+      slug: plainAd.category.slug,
+      name: getNameByLang(plainAd.category, lang)
+    },
+    location: {
+      id: plainAd.location._id,
+      slug: plainAd.location.slug,
+      name: getNameByLang(plainAd.location, lang)
+    }
   };
 }
 
