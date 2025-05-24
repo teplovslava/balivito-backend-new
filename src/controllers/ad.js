@@ -92,11 +92,10 @@ export const createAd = async (req, res) => {
 
     const savedAd = await newAd.save();
 
-    const populatedAd = await savedAd
+    const populatedAd = await Ad.findById(savedAd._id)
       .populate("category", "-__v")
       .populate("location")
-      .populate("author", "-password -__v -createdAt -updatedAt")
-      .execPopulate?.() || savedAd;
+      .populate("author", "-password -__v -createdAt -updatedAt");
 
     res.status(201).json(transformAd(populatedAd, lang));
   } catch (error) {
