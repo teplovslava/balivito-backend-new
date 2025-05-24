@@ -86,6 +86,10 @@ export default (agenda) => {
         isSystemChat: true,
       };
 
+      const fullMessage = await Message.findById(message._id)
+        .populate('sender', 'name')
+        .lean();
+
       const io = getIo();
       if (io) {
         io.in(`user:${buyerId}`).socketsJoin(systemChat._id.toString());
@@ -93,15 +97,7 @@ export default (agenda) => {
         if (wasCreated) {
           io.to(`user:${buyerId}`).emit('new_chat', chatDto);
         } else {
-          io.to(systemChat._id.toString()).emit('new_message', {
-            chatId   : systemChat._id,
-            sender   : { _id: SYSTEM_USER_ID, name: SYSTEM_NAME },
-            text     : message.text,
-            mediaUrl : [],
-            createdAt: message.createdAt,
-            isRead   : false,
-            isChanged: false,
-          });
+          io.to(systemChat._id.toString()).emit('new_message', fullMessage);
         }
       }
 
