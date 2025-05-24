@@ -16,9 +16,7 @@ function getNameByLang(field, lang = 'en') {
   console.log(field.name)
   if (!field) return '';
   if (typeof field === 'string') return field;
-  if (field.name && typeof field.name === 'object') {
-    return field.name[lang] || field.name['en'] || '';
-  }
+  return field.name.get(lang);
   return '';
 }
 
