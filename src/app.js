@@ -15,6 +15,7 @@ import locationRoutes from "./routes/location.js";
 import openRoutes from "./routes/open.js";
 import translateRoutes from "./routes/translate.js";
 import userRoutes from "./routes/users.js";
+import { setLocale } from "./middlewares/setLocale.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +28,8 @@ app.use(cors());
 app.use("/uploads", express.static(path.resolve("uploads")));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
+
+app.use(setLocale);
 
 app.use("/user", userRoutes);
 app.use("/auth", authRoutes);
