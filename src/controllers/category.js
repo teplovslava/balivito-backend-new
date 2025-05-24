@@ -6,7 +6,7 @@ export const getCategories = async (req, res) => {
     const categories = await Category.find();
     res.json(categories.map(cat => ({
       _id: cat._id,
-      name: cat.name[lang] || cat.name['en'],
+      name: cat.name.get(lang) || cat.name.get('en'),
       slug: cat.slug,
     })));
   } catch (e) {
