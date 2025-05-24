@@ -43,7 +43,6 @@ const enrichChat = (chat, userId) => {
 
 export const getUserChats = async (socket, _data, callback) => {
   const userId = socket.userId;
-  const lang = req.language;
   try {
     const chats = await Chat.find({ participants: userId })
       .populate({ path: "ad", select: "title photos" })
@@ -59,7 +58,7 @@ export const getUserChats = async (socket, _data, callback) => {
     callback({ success: true, chats: enriched, totalUnread });
   } catch (err) {
     console.error(err);
-    callback({ success: false, error: getErrorMessage("chat_fetch_error", lang) });
+    callback({ success: false, error: getErrorMessage("chat_fetch_error", 'en') });
   }
 };
 
@@ -81,7 +80,7 @@ export const getMessages = async (
   { chatId, page = 1, limit = 20 },
   cb
 ) => {
-  const lang = req.language;
+  const lang = 'en';
   try {
     const messages = await Message.find({ chatId })
       .sort({ createdAt: -1 })
@@ -123,7 +122,7 @@ export const sendMessage = async (
   },
   callback
 ) => {
-  const lang = req.language;
+    const lang = 'en';
   try {
     const senderId = socket.userId;
 
@@ -294,7 +293,7 @@ export const readChat = async (socket, io, { chatId }) => {
 };
 
 export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
-  const lang = req.language;
+    const lang = 'en';
   try {
     const userId = socket.userId;
     const message = await Message.findById(messageId).populate("sender");
@@ -331,7 +330,7 @@ export const setReaction = async (socket, io, { messageId, reaction }, cb) => {
 };
 
 export const uploadChatPhotos = async (req, res) => {
-  const lang = req.language;uage || 'en';
+  const lang = 'en';
   try {
     const userId = req.userId;
     if (!req.uploadedFiles || !req.uploadedFiles.length) {
@@ -351,7 +350,7 @@ export const uploadChatPhotos = async (req, res) => {
 };
 
 export const deleteUploadedPhoto = async (req, res) => {
-  const lang = req.language;uage || 'en';
+    const lang = 'en';
   try {
     const { id } = req.params;
     const file = await UploadedFile.findById(id);
@@ -370,7 +369,7 @@ export const deleteUploadedPhoto = async (req, res) => {
 };
 
 export const deleteMessage = async (socket, io, { messageId }, cb) => {
-  const lang = req.language;
+    const lang = 'en';
   try {
     const userId = socket.userId;
 
@@ -408,7 +407,7 @@ export const editMessage = async (
   { messageId, text, mediaUrl },
   cb
 ) => {
-  const lang = req.language;
+    const lang = 'en';
   try {
     const userId = socket.userId;
 

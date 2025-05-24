@@ -79,7 +79,6 @@ export default (agenda) => {
           type : 'invite_leave_root',
           label: labelText,
           meta : {
-            isSeller: true,
             toUser: { _id: seller._id, name: seller.name },
             ad:     { _id: ad._id, title: ad.title, photo: ad.photos?.[0] ?? null },
           },
