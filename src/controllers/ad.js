@@ -11,23 +11,38 @@ import {
 import { escapeRegExp } from "../utils/escapeRegExp.js";
 import { getPaginatedAds } from "../utils/getPaginatedAds.js";
 
+// --- ХЕЛПЕР: Получить имя поля на нужном языке (category, location)
+function getNameByLang(field, lang = 'en') {
+  if (!field) return '';
+  if (typeof field === 'string') return field;
+  if (field.name && typeof field.name === 'object') {
+    return field.name[lang] || field.name['en'] || '';
+  }
+  return '';
+}
+
+// --- ХЕЛПЕР: Трансформировать объявление для выдачи клиенту
+function transformAd(ad, lang = 'en') {
+  const plainAd = ad.toObject ? ad.toObject() : ad;
+  return {
+    ...plainAd,
+    category: getNameByLang(plainAd.category, lang),
+    location: getNameByLang(plainAd.location, lang),
+  };
+}
+
 export const createAd = async (req, res) => {
   try {
     const { title, description, price, category, location } = req.body;
-
     const { usd, idr, rub } = price || {};
 
-    // Проверка: хотя бы одна валюта задана
     if (usd == undefined && idr == undefined && rub == undefined) {
       return res
         .status(400)
         .json({ message: "Укажите хотя бы одну цену: usd, idr или rub" });
     }
 
-    const existingAds = await Ad.find({ author: req.userId, category }).select(
-      "title"
-    );
-
+    const existingAds = await Ad.find({ author: req.userId, category }).select("title");
     const dublicate = existingAds.find((ad) => {
       const similarity = jaccardSimilarity(ad.title, title);
       return similarity >= SIMILARITY_THRESHOLD;
@@ -58,7 +73,16 @@ export const createAd = async (req, res) => {
     });
 
     const savedAd = await newAd.save();
-    res.status(201).json(savedAd);
+
+    // Пополняем связки и возвращаем трансформированный ad
+    const populatedAd = await savedAd
+      .populate("category", "-__v")
+      .populate("location")
+      .populate("author", "-password -__v -createdAt -updatedAt")
+      .execPopulate?.() || savedAd;
+
+    const lang = req.language || 'en';
+    res.status(201).json(transformAd(populatedAd, lang));
   } catch (error) {
     console.error("Ошибка создания объявления:", error);
     res.status(500).json({ message: "Ошибка сервера" });
@@ -77,11 +101,8 @@ export const getMyAds = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const sortField = req.query.sort || "createdAt";
     const sortOrder = req.query.order === "asc" ? "asc" : "desc";
-
-    // Фильтр по автору
     const filter = { author: userId };
 
-    // Вызов общего метода пагинации
     const { ads, pagination } = await getPaginatedAds({
       filter,
       page,
@@ -91,7 +112,11 @@ export const getMyAds = async (req, res) => {
       extraFields: "favoriteCount isArchived",
     });
 
-    return res.json({ items: ads, pagination });
+    const lang = req.language || 'en';
+    return res.json({
+      items: ads.map(ad => transformAd(ad, lang)),
+      pagination,
+    });
   } catch (err) {
     console.error("Ошибка получения моих объявлений:", err);
     res.status(500).json({ message: "Ошибка сервера" });
@@ -139,16 +164,15 @@ export const getAdById = async (req, res) => {
     });
 
     let isFavorite = false;
-
     if (viewerId) {
       const user = await User.findById(viewerId).select("favorites");
       isFavorite =
-        user.favorites.findIndex((fav) => fav.toString() === id.toString()) >
-        -1;
+        user.favorites.findIndex((fav) => fav.toString() === id.toString()) > -1;
     }
 
+    const lang = req.language || 'en';
     res.status(200).json({
-      ...ad.toObject(),
+      ...transformAd(ad, lang),
       views: ad.viewerIds.length,
       isFavorite,
     });
@@ -160,7 +184,6 @@ export const getAdById = async (req, res) => {
 
 export const getAds = async (req, res) => {
   try {
-    // 1. Достаём все параметры фильтрации из запроса
     const {
       page = 1,
       limit = 10,
@@ -175,8 +198,6 @@ export const getAds = async (req, res) => {
     } = req.query;
 
     const viewerId = req.userId;
-
-    // 2. Формируем фильтр
     const filter = { isArchived: false };
 
     if (category) filter.category = category;
@@ -186,8 +207,6 @@ export const getAds = async (req, res) => {
       filter.title = { $regex: new RegExp(escapedSearch, "i") };
     }
 
-    // --- ФИЛЬТРАЦИЯ ПО ЦЕНЕ ---
-    // minPrice, maxPrice и currency (currency обязателен, иначе непонятно, по какому полю фильтровать)
     if (currency && (minPrice || maxPrice)) {
       filter[`price.${currency}`] = {};
       if (minPrice !== undefined && minPrice !== "") {
@@ -196,13 +215,11 @@ export const getAds = async (req, res) => {
       if (maxPrice !== undefined && maxPrice !== "") {
         filter[`price.${currency}`].$lte = Number(maxPrice);
       }
-      // Если объект пустой — убираем из фильтра
       if (Object.keys(filter[`price.${currency}`]).length === 0) {
         delete filter[`price.${currency}`];
       }
     }
 
-    // --- Сортировка ---
     const sortField = sort || "createdAt";
     const sortOrder = order === "asc" ? 1 : -1;
     let sortObj = {};
@@ -211,10 +228,8 @@ export const getAds = async (req, res) => {
     } else {
       sortObj[sortField] = sortOrder;
     }
-    // --- ПАГИНАЦИЯ ---
     const skip = (Number(page) - 1) * Number(limit);
 
-    // --- Запрос ---
     const ads = await Ad.find(filter)
       .sort(sortObj)
       .skip(skip)
@@ -224,7 +239,6 @@ export const getAds = async (req, res) => {
       .populate("location");
 
     const total = await Ad.countDocuments(filter);
-
     const pagination = {
       page: Number(page),
       limit: Number(limit),
@@ -232,12 +246,13 @@ export const getAds = async (req, res) => {
       totalPages: Math.ceil(total / Number(limit)),
     };
 
+    const lang = req.language || 'en';
+
     res.json({
-      items: ads,
+      items: ads.map(ad => transformAd(ad, lang)),
       pagination,
     });
 
-    // --- Обновляем историю просмотров ---
     if (viewerId && ads.length) {
       const newHistoryItems = ads.slice(0, 5).map((ad) => ({
         ad: ad._id,
@@ -362,19 +377,18 @@ export const getRecommendedAds = async (req, res) => {
     const user = await User.findById(userId);
     const favorites = user?.favorites || [];
 
-    // если нет истории просмотров — берём последние объявления
     if (!user || !user.viewedHistory?.length) {
       const filter = { author: { $ne: userId } };
-
       const { ads, pagination } = await getPaginatedAds({
         filter,
         page,
         limit,
       });
-
       const favoriteSet = new Set(favorites.map((fav) => fav.toString()));
+
+      const lang = req.language || 'en';
       const items = ads.map((ad) => ({
-        ...ad.toObject(),
+        ...transformAd(ad, lang),
         isFavorite: favoriteSet.has(ad._id.toString()),
       }));
 
@@ -384,10 +398,9 @@ export const getRecommendedAds = async (req, res) => {
     // рекомендационная логика
     const scoreMap = {};
     const now = Date.now();
-
     for (const view of user.viewedHistory) {
       const timeDiff =
-        (now - new Date(view.viewedAt).getTime()) / (1000 * 60 * 60); // в часах
+        (now - new Date(view.viewedAt).getTime()) / (1000 * 60 * 60);
       const score = Math.max(1, 24 - timeDiff);
 
       if (view.category) {
@@ -424,8 +437,9 @@ export const getRecommendedAds = async (req, res) => {
     const { ads, pagination } = await getPaginatedAds({ filter, page, limit });
 
     const favoriteSet = new Set(favorites.map((fav) => fav.toString()));
+    const lang = req.language || 'en';
     const items = ads.map((ad) => ({
-      ...ad.toObject(),
+      ...transformAd(ad, lang),
       isFavorite: favoriteSet.has(ad._id.toString()),
     }));
 
@@ -522,3 +536,4 @@ export const unarchiveAd = async (req, res) => {
     res.status(500).json({ message: "Ошибка сервера" });
   }
 };
+
