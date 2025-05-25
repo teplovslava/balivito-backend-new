@@ -381,20 +381,45 @@ export const getAdsByUserId = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Только не архивированные объявления
-    const ads = await Ad.find({ author: userId, isArchived: false })
-      .populate("category", "-__v")
-      .populate("location")
-      .populate("author", "-password -__v -createdAt -updatedAt");
+    // Параметры пагинации (по аналогии с другими ручками)
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 30;
 
+    // Формируем фильтр — только не архивированные объявления пользователя
+    const filter = {
+      author: userId,
+      isArchived: false,
+    };
+
+    // Считаем всего объявлений по фильтру
+    const total = await Ad.countDocuments(filter);
+
+    // Считаем количество страниц
+    const totalPages = Math.ceil(total / limit);
+
+    // Достаём объявления с учётом пагинации
+    const ads = await Ad.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .populate("location")
+
+    // Отдаём ответ
     res.json({
-      items: ads.map(ad => transformAd(ad, lang))
+      items: ads.map(ad => transformAd(ad, lang)),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
     });
   } catch (err) {
     console.error("Ошибка получения объявлений пользователя:", err);
     res.status(500).json({ message: getErrorMessage("server_error", lang) });
   }
 };
+
 
 export const getRecommendedAds = async (req, res) => {
   const lang = req.language || 'en';
