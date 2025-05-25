@@ -29,7 +29,7 @@ router.post(
   createAd
 );
 router.get("/my", requireAuthorizedUser, getMyAds);
-router.get('/other/:userId', getAdsByUserId);
+router.get('/seller/:userId', getAdsByUserId);
 router.get("/all", getAds);
 router.get("/recommended", getRecommendedAds);
 router.get("/search", getSearchSuggestions);
