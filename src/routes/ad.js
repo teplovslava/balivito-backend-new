@@ -5,6 +5,7 @@ import {
   deleteAd,
   getAdById,
   getAds,
+  getAdsByUserId,
   getMyAds,
   getRecommendedAds,
   getSearchSuggestions,
@@ -28,6 +29,7 @@ router.post(
   createAd
 );
 router.get("/my", requireAuthorizedUser, getMyAds);
+router.get('/other/:userId', getAdsByUserId);
 router.get("/all", getAds);
 router.get("/recommended", getRecommendedAds);
 router.get("/search", getSearchSuggestions);

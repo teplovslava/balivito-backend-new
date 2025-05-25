@@ -376,6 +376,26 @@ export const updateAd = async (req, res) => {
   }
 };
 
+export const getAdsByUserId = async (req, res) => {
+  const lang = req.language || 'en';
+  try {
+    const { userId } = req.params;
+
+    // Только не архивированные объявления
+    const ads = await Ad.find({ author: userId, isArchived: false })
+      .populate("category", "-__v")
+      .populate("location")
+      .populate("author", "-password -__v -createdAt -updatedAt");
+
+    res.json({
+      items: ads.map(ad => transformAd(ad, lang))
+    });
+  } catch (err) {
+    console.error("Ошибка получения объявлений пользователя:", err);
+    res.status(500).json({ message: getErrorMessage("server_error", lang) });
+  }
+};
+
 export const getRecommendedAds = async (req, res) => {
   const lang = req.language || 'en';
   try {
